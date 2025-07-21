@@ -28,6 +28,9 @@ This directory contains in-depth research and documentation for building a compr
 - [Open Source Simulation Software](13-open-source-simulation-software.md) - Deep dive into Genesis, OpenFOAM, and others
 - [OpenVDB Architecture Study](14-openvdb-architecture-study.md) - How OpenVDB handles volumetric data
 
+### 6. Memory Optimization
+- [Current Simulation Memory Formats](16-current-simulation-memory-formats.md) - Analysis of wasted bits, quantization, Fibonacci sphere encoding, and alternative sphere distributions
+
 ## Quick Start Guide
 
 1. Start with [Raw Simulation Data Formats](01-raw-simulation-data-formats.md) to understand the fundamental data types
@@ -52,4 +55,28 @@ This research is ongoing and will be updated as new findings emerge. Each docume
 - Links to relevant papers and resources
 - Future research directions
 
-Last Updated: [Date will be maintained here]
+## Completed Research
+
+The following research documents have been completed:
+- ✓ Raw Simulation Data Formats
+- ✓ Simulation Types Overview  
+- ✓ Fluid Simulation Extensions
+- ✓ Condensed Information Formats
+- ✓ Progressive Mesh Refinement
+- ✓ Bevy Meshlet Integration
+- ✓ Index-Based Storage Design
+- ✓ Temporal Data Management
+- ✓ Current Simulation Memory Formats
+
+## In Progress
+
+The following documents are being developed:
+- Spatial-Aware Streaming
+- Current Technologies Survey
+- Architectural Choices
+- GPU-Driven Processing
+- Open Source Simulation Software
+- OpenVDB Architecture Study
+- Multi-Resolution Data Structures (Taichi & Genesis)
+
+Last Updated: December 2024

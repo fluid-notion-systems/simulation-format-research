@@ -124,3 +124,7 @@ Significant wasted bits in storing:
 - Significant memory reduction
 - Cache-friendly access patterns
 - GPU-optimized lookups
+
+## Research Documentation
+
+For detailed technical deep dives into all aspects of this system, see the [Research Index](research/index.md).
