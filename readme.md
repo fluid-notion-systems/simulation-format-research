@@ -1,21 +1,126 @@
+# Simulation Data Format/Data Lake
 
-Simulation data format/data lake
-	comprehensive system for ingestion of massive datasets from simulations (currently fluid simulation, but probably also, fire, smoke, gas, thermo, leave stubs for these)
-		raw simulation data (velocities, pressure etc. please research these), for different simulation types (lbm currently ONLY, sph, mpm, fem etc.)
-		condensed info, i.e. isosurface, vorticity etc (research into what is currently common etc.). I eventually want a format with and index, and nanite/meshlet like functionality for quick initial display, but successive refinement. look into bevy's meshlet implementation, and if that is applicable, and related technologies.
-		we want to be able download index data, from say s3. and that contains indexes into the different datasets.
-		consideration that a simulation will have 'moments' in time, moving linearly.
-		(advanced, down the road)spatial aware storage, so that the simulation viewer can indicate which part is being viewed/critical, and only that part is streamed. think google maps tiling/cesium. but full-3d
-		Curent technologies, and approaches. links etc.
+A comprehensive system for ingestion of massive datasets from simulations, with initial focus on fluid simulation and extensibility to fire, smoke, gas, and thermodynamic simulations.
 
-		Architectural choices for ingestion (channels/crossbeam/parquet/timeseries/avro (?). cross-language simplicity)
-		GPU driven data-munging. i.e. mesh simplification, heirarchical data structures, and other optimizations for efficient processing and visualization.
-		Deep dive into open source simulations softwares (genesys, openfoam, etc)
-		Look into how openvdb does stuff
-		Look into multi-resolution data structures, especially those in taichi & genesys
+## Overview
 
+This project aims to create a modern, scalable data format and storage system for large-scale scientific simulations, enabling efficient storage, streaming, and visualization of time-varying volumetric data.
 
-Curernt simulation memory formats.
-current storage uses fp16 & fp32 & fp64.
-There is alot of wasted bits storing things like rotation (normalized (0-1, 0-1, 0.1)). analysis of wasted bits for: rotation, vectors(simulations of say fluid will only have velocity up to s certiain point, like 2.0m/s, or something)
-look into fibonnacci sphere for storing rotation as an index. needs to be two way mapping between index and rotation.
+## Core Features
+
+### 1. Raw Simulation Data Support
+
+Support for various simulation types and their associated data:
+
+- **Currently Implemented**: Lattice Boltzmann Method (LBM)
+- **Planned Support**: 
+  - Smoothed Particle Hydrodynamics (SPH)
+  - Material Point Method (MPM)
+  - Finite Element Method (FEM)
+  - Fire, smoke, gas, and thermodynamic simulations
+
+**Data Types**:
+- Velocity fields
+- Pressure fields
+- Temperature data
+- Density information
+- Other physics-specific quantities
+
+### 2. Condensed Information Formats
+
+Derived data for efficient visualization:
+
+- **Isosurfaces**: Extracted surface representations
+- **Vorticity**: Rotational flow features
+- **Feature extraction**: Common visualization primitives
+
+**Progressive Refinement**:
+- Index-based format for quick initial display
+- Nanite/meshlet-like functionality for successive refinement
+- Integration with Bevy's meshlet implementation
+
+### 3. Cloud-Native Storage Design
+
+**S3-Compatible Architecture**:
+- Download index data from S3
+- Index files contain pointers to different datasets
+- Optimized for cloud storage patterns
+
+**Temporal Considerations**:
+- Support for simulation "moments" in time
+- Linear temporal progression
+- Efficient time-based access patterns
+
+### 4. Spatial-Aware Streaming (Advanced)
+
+Future capability for intelligent spatial data streaming:
+
+- Similar to Google Maps tiling or Cesium terrain streaming
+- Full 3D spatial awareness
+- Stream only visible/critical portions based on viewer position
+- Progressive level-of-detail loading
+
+## Technical Implementation
+
+### Architectural Choices for Data Ingestion
+
+Cross-language compatible design using:
+- **Channels/Crossbeam**: For Rust-based parallel processing
+- **Parquet**: Columnar storage format
+- **Time-series optimizations**: For temporal data
+- **Avro**: Schema evolution support (under consideration)
+
+### GPU-Driven Data Processing
+
+- Mesh simplification on GPU
+- Hierarchical data structure generation
+- Real-time optimization for visualization
+- Efficient processing pipelines
+
+### Technology Research
+
+**Open Source Simulation Software**:
+- Genesis
+- OpenFOAM
+- Other major simulation packages
+
+**Data Structure Technologies**:
+- OpenVDB architecture and techniques
+- Multi-resolution data structures from Taichi
+- Genesis implementation patterns
+
+## Memory Format Optimization
+
+### Current Storage Analysis
+
+Current simulations use mixed precision:
+- `fp16` (half precision)
+- `fp32` (single precision)  
+- `fp64` (double precision)
+
+### Identified Inefficiencies
+
+Significant wasted bits in storing:
+
+1. **Rotations**: 
+   - Currently stored as normalized quaternions (4 floats)
+   - Only 3 degrees of freedom needed
+   - Potential for index-based encoding
+
+2. **Velocity Vectors**:
+   - Fluid simulations have bounded velocities (e.g., max 2.0 m/s)
+   - Full float precision unnecessary
+   - Domain-specific compression possible
+
+### Proposed Optimization: Fibonacci Sphere Encoding
+
+**Requirements**:
+- Store rotations/normalized vectors as indices
+- Two-way mapping between index and rotation
+- Efficient encoding/decoding
+- Controllable precision
+
+**Benefits**:
+- Significant memory reduction
+- Cache-friendly access patterns
+- GPU-optimized lookups

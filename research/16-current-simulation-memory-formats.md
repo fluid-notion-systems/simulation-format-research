@@ -237,7 +237,369 @@ struct OptimizedFibonacciSphere {
 }
 ```
 
-## 4. Rotation Storage Using Fibonacci Sphere
+## 4. Quantization Formats and Technologies
+
+### Linear Quantization vs Floating Point
+
+Floating-point formats use a non-linear representation with mantissa and exponent, which can be inefficient for bounded data:
+
+```rust
+// Floating point structure (IEEE 754)
+struct FloatingPoint32 {
+    sign: u1,
+    exponent: u8,    // Biased by 127
+    mantissa: u23,   // Implicit leading 1
+}
+
+// Linear quantization
+struct LinearQuantized {
+    value: u16,  // Or u8, u32 depending on precision needs
+    
+    // Conversion parameters
+    min_value: f32,
+    max_value: f32,
+    
+    fn to_float(&self) -> f32 {
+        let normalized = self.value as f32 / (u16::MAX as f32);
+        self.min_value + normalized * (self.max_value - self.min_value)
+    }
+    
+    fn from_float(val: f32, min: f32, max: f32) -> Self {
+        let normalized = ((val - min) / (max - min)).clamp(0.0, 1.0);
+        LinearQuantized {
+            value: (normalized * u16::MAX as f32) as u16,
+            min_value: min,
+            max_value: max,
+        }
+    }
+}
+```
+
+### Benefits of Linear Quantization
+
+1. **Uniform Precision**: Equal spacing across the entire range
+2. **Predictable Error**: Maximum error is (max-min)/(2^bits)
+3. **Simple Hardware**: Addition/subtraction work directly on quantized values
+4. **Cache Efficiency**: Smaller data types mean better cache utilization
+5. **SIMD Friendly**: Can process more values per instruction
+
+### Related Quantization Technologies
+
+#### 1. NVIDIA's Block-Based Quantization
+```rust
+struct BlockQuantization {
+    // Shared scale/offset per block of values
+    block_scale: f32,
+    block_offset: f32,
+    
+    // Quantized values in block
+    values: [u8; 64],  // 8-bit per value
+}
+```
+
+#### 2. Posit Numbers (Type III Unums)
+```rust
+// Posit format - alternative to IEEE floating point
+struct Posit16 {
+    sign: u1,
+    regime: Variable,      // Variable length run of bits
+    exponent: Variable,    // Optional, fills remaining bits
+    fraction: Variable,    // Optional, fills remaining bits
+}
+// Better accuracy near 1.0, graceful underflow/overflow
+```
+
+#### 3. Microsoft's XNNPACK Quantization
+```rust
+struct XNNPackQuant {
+    // Asymmetric quantization with zero-point
+    scale: f32,
+    zero_point: i32,
+    
+    fn quantize(&self, x: f32) -> i8 {
+        let scaled = x / self.scale + self.zero_point as f32;
+        scaled.round().clamp(i8::MIN as f32, i8::MAX as f32) as i8
+    }
+}
+```
+
+#### 4. TensorFlow Lite's Quantization Schemes
+```rust
+enum TFLiteQuantization {
+    // Post-training quantization
+    Dynamic { min: f32, max: f32 },
+    
+    // Quantization-aware training
+    Static { scale: f32, zero_point: i32 },
+    
+    // Per-channel quantization
+    PerChannel { scales: Vec<f32>, zero_points: Vec<i32> },
+}
+```
+
+### Domain-Specific Quantization for Simulations
+
+```rust
+struct SimulationQuantizer {
+    // Velocity quantization (bounded physical quantity)
+    velocity_quant: BoundedQuantizer,
+    
+    // Pressure quantization (positive, logarithmic distribution)
+    pressure_quant: LogQuantizer,
+    
+    // Temperature quantization (kelvin scale)
+    temperature_quant: OffsetQuantizer,
+}
+
+struct BoundedQuantizer {
+    bounds: (f32, f32),
+    bits: u8,
+    
+    fn quantize(&self, val: f32) -> u32 {
+        let clamped = val.clamp(self.bounds.0, self.bounds.1);
+        let normalized = (clamped - self.bounds.0) / (self.bounds.1 - self.bounds.0);
+        (normalized * ((1 << self.bits) - 1) as f32) as u32
+    }
+}
+
+struct LogQuantizer {
+    min_val: f32,  // Must be > 0
+    max_val: f32,
+    bits: u8,
+    
+    fn quantize(&self, val: f32) -> u32 {
+        let log_val = val.ln();
+        let log_min = self.min_val.ln();
+        let log_max = self.max_val.ln();
+        let normalized = (log_val - log_min) / (log_max - log_min);
+        (normalized * ((1 << self.bits) - 1) as f32) as u32
+    }
+}
+```
+
+## 5. Alternative Sphere Point Distributions
+
+### Beyond Fibonacci: Other Uniform Distributions
+
+#### 1. Spherical Fibonacci Lattice
+```rust
+// Original Fibonacci but with lattice correction
+fn spherical_fibonacci_lattice(n: usize) -> Vec<Vec3> {
+    let mut points = Vec::with_capacity(n);
+    let offset = 2.0 / n as f64;
+    let increment = PI * (3.0 - 5.0_f64.sqrt());
+    
+    for i in 0..n {
+        let y = ((i as f64 * offset) - 1.0) + (offset / 2.0);
+        let r = (1.0 - y * y).sqrt();
+        let phi = (i as f64 % n as f64) * increment;
+        
+        points.push(Vec3 {
+            x: (phi.cos() * r) as f32,
+            y: y as f32,
+            z: (phi.sin() * r) as f32,
+        });
+    }
+    
+    points
+}
+```
+
+#### 2. Hammersley Point Set
+```rust
+// Low-discrepancy sequence on sphere
+fn hammersley_sphere(n: usize) -> Vec<Vec3> {
+    let mut points = Vec::with_capacity(n);
+    
+    for i in 0..n {
+        // Van der Corput sequence for one dimension
+        let mut p = 0.0;
+        let mut k = i;
+        let mut f = 0.5;
+        while k > 0 {
+            p += f * (k % 2) as f64;
+            k /= 2;
+            f *= 0.5;
+        }
+        
+        // Map to sphere
+        let theta = 2.0 * PI * i as f64 / n as f64;
+        let phi = (1.0 - 2.0 * p).acos();
+        
+        points.push(Vec3 {
+            x: (phi.sin() * theta.cos()) as f32,
+            y: (phi.sin() * theta.sin()) as f32,
+            z: phi.cos() as f32,
+        });
+    }
+    
+    points
+}
+```
+
+#### 3. Spiral Points
+```rust
+// Generalized spiral with customizable parameters
+struct SpiralDistribution {
+    spiral_type: SpiralType,
+    
+    fn generate(&self, n: usize) -> Vec<Vec3> {
+        match self.spiral_type {
+            SpiralType::Archimedean => self.archimedean_spiral(n),
+            SpiralType::Logarithmic => self.logarithmic_spiral(n),
+            SpiralType::GoldenAngle => self.golden_angle_spiral(n),
+        }
+    }
+    
+    fn golden_angle_spiral(&self, n: usize) -> Vec<Vec3> {
+        let golden_angle = PI * (3.0 - 5.0_f64.sqrt());
+        let mut points = Vec::with_capacity(n);
+        
+        for i in 0..n {
+            let theta = i as f64 * golden_angle;
+            let z = 1.0 - 2.0 * i as f64 / (n - 1) as f64;
+            let radius = (1.0 - z * z).sqrt();
+            
+            points.push(Vec3 {
+                x: (theta.cos() * radius) as f32,
+                y: (theta.sin() * radius) as f32,
+                z: z as f32,
+            });
+        }
+        
+        points
+    }
+}
+```
+
+#### 4. Icosahedral Subdivision
+```rust
+// Start with icosahedron, recursively subdivide
+struct IcosahedralSphere {
+    subdivision_level: u32,
+    
+    fn generate(&self) -> Vec<Vec3> {
+        let mut vertices = self.icosahedron_vertices();
+        let mut faces = self.icosahedron_faces();
+        
+        for _ in 0..self.subdivision_level {
+            let (new_vertices, new_faces) = self.subdivide(vertices, faces);
+            vertices = new_vertices;
+            faces = new_faces;
+        }
+        
+        // Normalize all vertices to unit sphere
+        vertices.iter_mut().for_each(|v| *v = v.normalize());
+        vertices
+    }
+    
+    fn subdivide(&self, vertices: Vec<Vec3>, faces: Vec<[usize; 3]>) -> (Vec<Vec3>, Vec<[usize; 3]>) {
+        // Subdivide each triangle into 4 smaller triangles
+        // Implementation details...
+    }
+}
+```
+
+#### 5. Optimal Packing Solutions
+```rust
+// Thomson problem solutions - minimize potential energy
+struct ThomsonSphere {
+    n_points: usize,
+    
+    fn optimize(&self, initial: Vec<Vec3>) -> Vec<Vec3> {
+        let mut points = initial;
+        let mut temperature = 1.0;
+        
+        for iteration in 0..1000 {
+            // Compute repulsive forces
+            let forces = self.compute_forces(&points);
+            
+            // Update positions
+            for (i, force) in forces.iter().enumerate() {
+                points[i] += *force * temperature;
+                points[i] = points[i].normalize();
+            }
+            
+            // Simulated annealing
+            temperature *= 0.99;
+        }
+        
+        points
+    }
+    
+    fn compute_forces(&self, points: &[Vec3]) -> Vec<Vec3> {
+        let mut forces = vec![Vec3::ZERO; points.len()];
+        
+        for i in 0..points.len() {
+            for j in 0..points.len() {
+                if i != j {
+                    let diff = points[i] - points[j];
+                    let dist_sq = diff.length_squared();
+                    forces[i] += diff / (dist_sq * dist_sq.sqrt());
+                }
+            }
+        }
+        
+        forces
+    }
+}
+```
+
+#### 6. Blue Noise Distribution
+```rust
+// Poisson disk sampling on sphere
+struct BlueNoiseSphere {
+    min_distance: f32,
+    
+    fn generate(&self, n_target: usize) -> Vec<Vec3> {
+        let mut points = Vec::new();
+        let mut active = Vec::new();
+        
+        // Start with random point
+        let initial = Vec3::random_unit();
+        points.push(initial);
+        active.push(initial);
+        
+        while !active.is_empty() && points.len() < n_target {
+            let idx = rand::random::<usize>() % active.len();
+            let base = active[idx];
+            
+            let mut found = false;
+            for _ in 0..30 {  // k attempts
+                let candidate = self.random_point_near(base);
+                
+                if self.is_valid(&candidate, &points) {
+                    points.push(candidate);
+                    active.push(candidate);
+                    found = true;
+                    break;
+                }
+            }
+            
+            if !found {
+                active.swap_remove(idx);
+            }
+        }
+        
+        points
+    }
+}
+```
+
+### Comparison of Sphere Distributions
+
+| Method | Uniformity | Computation | Memory | Use Case |
+|--------|------------|-------------|---------|----------|
+| Fibonacci | Excellent | O(n) | O(1) | General purpose |
+| Hammersley | Very Good | O(n log n) | O(1) | Low discrepancy needed |
+| Spiral | Good | O(n) | O(1) | Simple implementation |
+| Icosahedral | Perfect* | O(n) | O(n) | Fixed subdivisions |
+| Thomson | Optimal | O(n²) iter | O(n) | Small n, need optimal |
+| Blue Noise | Good | O(n²) | O(n) | Artistic/rendering |
+
+*Perfect for specific n values only
+
+## 6. Rotation Storage Using Fibonacci Sphere
 
 ### Quaternion to Fibonacci Index
 
@@ -323,7 +685,7 @@ enum DeltaRotation {
 }
 ```
 
-## 5. Practical Implementation
+## 7. Practical Implementation
 
 ### Velocity Field Compression
 
@@ -388,7 +750,7 @@ struct HierarchicalCompressor {
 }
 ```
 
-## 6. Memory Savings Analysis
+## 8. Memory Savings Analysis
 
 ### Before Optimization
 ```
@@ -422,7 +784,7 @@ Compression ratio: 320/116 = 2.76× (64% reduction!)
 - Saved: 2.55 TB
 ```
 
-## 7. GPU Implementation
+## 9. GPU Implementation
 
 ### CUDA Kernel for Fibonacci Sphere
 
@@ -478,7 +840,7 @@ struct GPUFibonacciLUT {
 }
 ```
 
-## 8. Error Analysis
+## 10. Error Analysis
 
 ### Quantization Error
 
@@ -514,7 +876,7 @@ fn analyze_fibonacci_error(n_points: u32) {
 // N=65536,  Max angle=0.9°,  RMS error=0.003864
 ```
 
-## 9. Best Practices
+## 11. Best Practices
 
 1. **Choose Appropriate Resolution**: Match Fibonacci sphere points to required precision
 2. **Use Hierarchical Schemes**: Different LODs for different data importance
@@ -522,7 +884,7 @@ fn analyze_fibonacci_error(n_points: u32) {
 4. **Consider Domain Constraints**: Use physical limits to reduce bit requirements
 5. **Profile Memory Access**: Ensure compressed format doesn't hurt cache performance
 
-## 10. Future Research
+## 12. Future Research
 
 ### Learned Compression
 ```rust
