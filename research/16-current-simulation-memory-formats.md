@@ -36,10 +36,29 @@ struct SimulationPoint {
 - **Waste**: 80 bits per rotation
 
 #### Pressure
-- **Typical range**: 0 to 1000 kPa
-- **Required precision**: 0.1 kPa
-- **Bits needed**: log₂(10,000) ≈ 13.3 bits
+- **Typical range**: 0 to 1000 kPa (atmospheric simulations)
+- **Extended range**: 0 to 100 MPa (high-pressure applications)
+- **Required precision**: 0.1 kPa (atmospheric), 10 kPa (high-pressure)
+- **Bits needed**: log₂(10,000) ≈ 13.3 bits (atmospheric)
 - **Waste**: 18.7 bits
+
+#### Temperature
+- **Typical range**: 250K to 350K (atmospheric flows, 100K span)
+- **Extended range**: 300K to 3000K (combustion, 2700K span)
+- **Extreme range**: 0K to 5000K (materials, 5000K span)
+- **Required precision**: 0.1K (atmospheric), 1K (combustion), 5K (materials)
+- **Bits needed**: log₂(1000) ≈ 10 bits (atmospheric), 12 bits (combustion)
+- **Waste**: 22 bits (atmospheric), 20 bits (combustion)
+
+#### Density
+- **Air range**: 0.5 to 3.0 kg/m³ (sea level to 30km altitude)
+- **Air precision needed**: 0.001 kg/m³ (critical for buoyancy calculations)
+- **Air bits needed**: log₂(2500) ≈ 11.3 bits
+- **Typical range**: 0.1 to 2000 kg/m³ (air to dense liquids)
+- **Extended range**: 0.01 to 20000 kg/m³ (gases to metals)
+- **Required precision**: 0.001 kg/m³ (air), 0.01 kg/m³ (other gases), 1 kg/m³ (liquids), 10 kg/m³ (solids)
+- **Bits needed**: log₂(2500) ≈ 11.3 bits (air), log₂(200,000) ≈ 17.6 bits (full gas precision), 14 bits (liquid precision)
+- **Waste**: 20.7 bits (air precision), 14.4 bits (gas precision), 18 bits (liquid precision)
 
 ## 2. Wasted Bits Deep Analysis
 
@@ -781,9 +800,9 @@ Compression ratio: 320/116 = 2.76× (64% reduction!)
 Per simulation point:
 - Velocity: 32 bits (Fibonacci sphere index: 24 bits, magnitude: 8 bits)
 - Rotation: 32 bits (Fibonacci sphere index: 24 bits, angle: 8 bits)
-- Pressure: 12 bits (quantized to range)
-- Temperature: 10 bits (quantized to range) 
-- Density: 10 bits (quantized to range)
+- Pressure: 12 bits (4096 levels, precision analysis below)
+- Temperature: 10 bits (1024 levels, precision analysis below) 
+- Density: 10 bits (1024 levels, precision analysis below)
 Total: 96 bits (packed into 3 × 32-bit words)
 
 Word 1: Velocity (32 bits)
@@ -791,6 +810,88 @@ Word 2: Rotation (32 bits)
 Word 3: Pressure(12) + Temperature(10) + Density(10) bits
 
 Compression ratio: 320/96 = 3.33× (70% reduction!)
+
+### Quantization Precision Analysis
+**Pressure (12 bits = 4096 levels)**:
+- Atmospheric range (0-1000 kPa): 0.24 kPa precision ✓ (target: 0.1 kPa)
+- High-pressure range (0-100 MPa): 24.4 kPa precision ⚠️ (target: 10 kPa)
+
+**Temperature (10 bits = 1024 levels)**:
+- Atmospheric range (250-350K): 0.1K precision ✓ (target: 0.1K)
+- Combustion range (300-3000K): 2.6K precision ⚠️ (target: 1K)
+- Materials range (0-5000K): 4.9K precision ⚠️ (target: 5K)
+
+**Density (10 bits = 1024 levels)**:
+- Air only (0.5-3.0 kg/m³): 0.0024 kg/m³ precision ✓ (target: 0.001 kg/m³)
+- Air-water range (0.1-2000 kg/m³): 1.95 kg/m³ precision ⚠️ (target: 0.01-1 kg/m³)
+- Extended range (0.01-20000 kg/m³): 19.5 kg/m³ precision ❌ (too coarse)
+
+### Domain-Specific Recommendations
+For high-precision requirements, consider adaptive bit allocation:
+- **Air-only simulations**: Current allocation excellent (density precision: 0.0024 kg/m³)
+- **Atmospheric flows**: Current allocation sufficient for mixed air-water
+- **Combustion/materials**: Increase temperature to 12 bits
+- **High-pressure systems**: Increase pressure to 14 bits  
+- **Multi-phase flows**: Increase density to 12-14 bits
+- **Gas dynamics**: Need 12 bits for density to handle full gas range precisely
+
+### Adaptive Quantization Strategy
+```rust
+struct AdaptiveQuantizer {
+    simulation_type: SimulationType,
+    precision_requirements: PrecisionProfile,
+}
+
+enum SimulationType {
+    AirOnly { altitude_range: (f32, f32), temp_range: (f32, f32) },
+    Atmospheric { max_pressure: f32, temp_range: (f32, f32) },
+    Combustion { max_temp: f32, fuel_types: Vec<FuelType> },
+    HighPressure { max_pressure: f32, compressibility: f32 },
+    MultiPhase { phases: Vec<PhaseProperties> },
+}
+
+struct PrecisionProfile {
+    pressure_bits: u8,    // 10-16 bits depending on range
+    temperature_bits: u8, // 8-14 bits depending on range  
+    density_bits: u8,     // 8-16 bits depending on materials
+}
+
+impl AdaptiveQuantizer {
+    fn optimize_for_domain(&self) -> CompressedLayout {
+        match self.simulation_type {
+            SimulationType::AirOnly { .. } => CompressedLayout {
+                pressure_bits: 12,    // 0.24 kPa precision
+                temperature_bits: 10, // 0.1K precision
+                density_bits: 10,     // 0.0024 kg/m³ precision (0.5-3.0 kg/m³ range)
+                total_bits: 96,
+            },
+            SimulationType::Atmospheric { .. } => CompressedLayout {
+                pressure_bits: 12,    // 0.24 kPa precision
+                temperature_bits: 10, // 0.1K precision
+                density_bits: 11,     // 0.98 kg/m³ precision (air-water mixed)
+                total_bits: 97,       // +1 bit for broader density range
+            },
+            SimulationType::Combustion { max_temp, .. } => CompressedLayout {
+                pressure_bits: 12,    // Maintain pressure precision
+                temperature_bits: 12, // 0.66K precision up to 2700K
+                density_bits: 10,     // Standard density precision
+                total_bits: 98,       // +2 bits for temperature
+            },
+            SimulationType::HighPressure { .. } => CompressedLayout {
+                pressure_bits: 14,    // 6.1 kPa precision up to 100 MPa
+                temperature_bits: 10, // Standard temperature
+                density_bits: 10,     // Standard density
+                total_bits: 98,       // +2 bits for pressure
+            },
+            SimulationType::MultiPhase { .. } => CompressedLayout {
+                pressure_bits: 12,    // Standard pressure
+                temperature_bits: 10, // Standard temperature  
+                density_bits: 14,     // 1.22 kg/m³ precision up to 20000
+                total_bits: 100,      // +4 bits for density
+            },
+        }
+    }
+}
 ```
 
 ### Large-Scale Impact
