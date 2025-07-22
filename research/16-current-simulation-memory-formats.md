@@ -67,7 +67,7 @@ struct NormalizedVector {
 struct VelocityAnalysis {
     // Incompressible flow: ∇·v = 0
     // This constraint means velocities are not independent!
-    
+
     // Smooth flow assumption
     // Neighboring velocities are highly correlated
     // Information content much lower than raw storage
@@ -89,15 +89,15 @@ The Fibonacci sphere provides an optimal distribution of points on a sphere with
 /// Produces N evenly distributed points on unit sphere
 fn fibonacci_sphere_point(i: usize, n: usize) -> (f64, f64, f64) {
     let phi = PI * (3.0_f64.sqrt() - 1.0);  // Golden angle ≈ 2.39996
-    
+
     let y = 1.0 - (2.0 * i as f64) / (n as f64 - 1.0);  // y ∈ [-1, 1]
     let radius = (1.0 - y * y).sqrt();
-    
+
     let theta = phi * i as f64;
-    
+
     let x = theta.cos() * radius;
     let z = theta.sin() * radius;
-    
+
     (x, y, z)
 }
 ```
@@ -114,23 +114,23 @@ fn fibonacci_sphere_point(i: usize, n: usize) -> (f64, f64, f64) {
 ```rust
 struct FibonacciSphere {
     n_points: u32,  // Total points on sphere
-    
+
     /// Convert index to normalized 3D vector
     fn index_to_vector(&self, index: u32) -> Vec3 {
         debug_assert!(index < self.n_points);
-        
+
         let n = self.n_points as f64;
         let i = index as f64;
-        
+
         // Golden ratio
         const PHI: f64 = 1.618033988749895;  // (1 + √5) / 2
         const GOLDEN_ANGLE: f64 = 2.399963229728653;  // 2π / φ²
-        
+
         // Compute position
         let y = 1.0 - 2.0 * i / (n - 1.0);
         let radius = (1.0 - y * y).sqrt();
         let theta = GOLDEN_ANGLE * i;
-        
+
         Vec3 {
             x: radius * theta.cos(),
             y,
@@ -147,28 +147,28 @@ impl FibonacciSphere {
     /// Find nearest Fibonacci sphere point to given vector
     fn vector_to_index(&self, v: Vec3) -> u32 {
         let v = v.normalize();
-        
+
         // Approximate inverse mapping
         // Based on the fact that y-coordinates are linearly distributed
         let y_estimate = v.y;
         let i_estimate = ((1.0 - y_estimate) * (self.n_points as f64 - 1.0) / 2.0).round() as u32;
-        
+
         // Search neighborhood for closest point
         let search_radius = 3;  // Typically sufficient
         let mut best_index = i_estimate;
         let mut best_distance = f64::MAX;
-        
+
         for delta in -search_radius..=search_radius {
             let test_index = (i_estimate as i32 + delta).clamp(0, self.n_points as i32 - 1) as u32;
             let test_vec = self.index_to_vector(test_index);
             let distance = (test_vec - v).magnitude_squared();
-            
+
             if distance < best_distance {
                 best_distance = distance;
                 best_index = test_index;
             }
         }
-        
+
         best_index
     }
 }
@@ -181,49 +181,49 @@ struct OptimizedFibonacciSphere {
     n_points: u32,
     // Precomputed acceleration structure
     spatial_hash: HashMap<SpatialKey, Vec<u32>>,
-    
+
     fn new(n_points: u32) -> Self {
         let mut sphere = Self {
             n_points,
             spatial_hash: HashMap::new(),
         };
-        
+
         // Build spatial hash for fast lookup
         for i in 0..n_points {
             let vec = sphere.index_to_vector_internal(i);
             let key = Self::spatial_key(vec);
             sphere.spatial_hash.entry(key).or_default().push(i);
         }
-        
+
         sphere
     }
-    
+
     fn spatial_key(v: Vec3) -> SpatialKey {
         // Discretize sphere into cells
         const GRID_SIZE: i32 = 32;
         let theta = v.z.atan2(v.x);
         let phi = v.y.acos();
-        
+
         SpatialKey {
             theta_cell: ((theta + PI) / (2.0 * PI) * GRID_SIZE as f64) as i32,
             phi_cell: (phi / PI * GRID_SIZE as f64) as i32,
         }
     }
-    
+
     fn vector_to_index_fast(&self, v: Vec3) -> u32 {
         let v = v.normalize();
         let key = Self::spatial_key(v);
-        
+
         // Check spatial hash cell and neighbors
         let mut best_index = 0;
         let mut best_distance = f64::MAX;
-        
+
         for neighbor_key in self.get_neighbor_keys(key) {
             if let Some(indices) = self.spatial_hash.get(&neighbor_key) {
                 for &index in indices {
                     let test_vec = self.index_to_vector_internal(index);
                     let distance = (test_vec - v).magnitude_squared();
-                    
+
                     if distance < best_distance {
                         best_distance = distance;
                         best_index = index;
@@ -231,7 +231,7 @@ struct OptimizedFibonacciSphere {
                 }
             }
         }
-        
+
         best_index
     }
 }
@@ -254,16 +254,16 @@ struct FloatingPoint32 {
 // Linear quantization
 struct LinearQuantized {
     value: u16,  // Or u8, u32 depending on precision needs
-    
+
     // Conversion parameters
     min_value: f32,
     max_value: f32,
-    
+
     fn to_float(&self) -> f32 {
         let normalized = self.value as f32 / (u16::MAX as f32);
         self.min_value + normalized * (self.max_value - self.min_value)
     }
-    
+
     fn from_float(val: f32, min: f32, max: f32) -> Self {
         let normalized = ((val - min) / (max - min)).clamp(0.0, 1.0);
         LinearQuantized {
@@ -291,7 +291,7 @@ struct BlockQuantization {
     // Shared scale/offset per block of values
     block_scale: f32,
     block_offset: f32,
-    
+
     // Quantized values in block
     values: [u8; 64],  // 8-bit per value
 }
@@ -315,7 +315,7 @@ struct XNNPackQuant {
     // Asymmetric quantization with zero-point
     scale: f32,
     zero_point: i32,
-    
+
     fn quantize(&self, x: f32) -> i8 {
         let scaled = x / self.scale + self.zero_point as f32;
         scaled.round().clamp(i8::MIN as f32, i8::MAX as f32) as i8
@@ -328,10 +328,10 @@ struct XNNPackQuant {
 enum TFLiteQuantization {
     // Post-training quantization
     Dynamic { min: f32, max: f32 },
-    
+
     // Quantization-aware training
     Static { scale: f32, zero_point: i32 },
-    
+
     // Per-channel quantization
     PerChannel { scales: Vec<f32>, zero_points: Vec<i32> },
 }
@@ -343,10 +343,10 @@ enum TFLiteQuantization {
 struct SimulationQuantizer {
     // Velocity quantization (bounded physical quantity)
     velocity_quant: BoundedQuantizer,
-    
+
     // Pressure quantization (positive, logarithmic distribution)
     pressure_quant: LogQuantizer,
-    
+
     // Temperature quantization (kelvin scale)
     temperature_quant: OffsetQuantizer,
 }
@@ -354,7 +354,7 @@ struct SimulationQuantizer {
 struct BoundedQuantizer {
     bounds: (f32, f32),
     bits: u8,
-    
+
     fn quantize(&self, val: f32) -> u32 {
         let clamped = val.clamp(self.bounds.0, self.bounds.1);
         let normalized = (clamped - self.bounds.0) / (self.bounds.1 - self.bounds.0);
@@ -366,7 +366,7 @@ struct LogQuantizer {
     min_val: f32,  // Must be > 0
     max_val: f32,
     bits: u8,
-    
+
     fn quantize(&self, val: f32) -> u32 {
         let log_val = val.ln();
         let log_min = self.min_val.ln();
@@ -388,19 +388,19 @@ fn spherical_fibonacci_lattice(n: usize) -> Vec<Vec3> {
     let mut points = Vec::with_capacity(n);
     let offset = 2.0 / n as f64;
     let increment = PI * (3.0 - 5.0_f64.sqrt());
-    
+
     for i in 0..n {
         let y = ((i as f64 * offset) - 1.0) + (offset / 2.0);
         let r = (1.0 - y * y).sqrt();
         let phi = (i as f64 % n as f64) * increment;
-        
+
         points.push(Vec3 {
             x: (phi.cos() * r) as f32,
             y: y as f32,
             z: (phi.sin() * r) as f32,
         });
     }
-    
+
     points
 }
 ```
@@ -410,7 +410,7 @@ fn spherical_fibonacci_lattice(n: usize) -> Vec<Vec3> {
 // Low-discrepancy sequence on sphere
 fn hammersley_sphere(n: usize) -> Vec<Vec3> {
     let mut points = Vec::with_capacity(n);
-    
+
     for i in 0..n {
         // Van der Corput sequence for one dimension
         let mut p = 0.0;
@@ -421,18 +421,18 @@ fn hammersley_sphere(n: usize) -> Vec<Vec3> {
             k /= 2;
             f *= 0.5;
         }
-        
+
         // Map to sphere
         let theta = 2.0 * PI * i as f64 / n as f64;
         let phi = (1.0 - 2.0 * p).acos();
-        
+
         points.push(Vec3 {
             x: (phi.sin() * theta.cos()) as f32,
             y: (phi.sin() * theta.sin()) as f32,
             z: phi.cos() as f32,
         });
     }
-    
+
     points
 }
 ```
@@ -442,7 +442,7 @@ fn hammersley_sphere(n: usize) -> Vec<Vec3> {
 // Generalized spiral with customizable parameters
 struct SpiralDistribution {
     spiral_type: SpiralType,
-    
+
     fn generate(&self, n: usize) -> Vec<Vec3> {
         match self.spiral_type {
             SpiralType::Archimedean => self.archimedean_spiral(n),
@@ -450,23 +450,23 @@ struct SpiralDistribution {
             SpiralType::GoldenAngle => self.golden_angle_spiral(n),
         }
     }
-    
+
     fn golden_angle_spiral(&self, n: usize) -> Vec<Vec3> {
         let golden_angle = PI * (3.0 - 5.0_f64.sqrt());
         let mut points = Vec::with_capacity(n);
-        
+
         for i in 0..n {
             let theta = i as f64 * golden_angle;
             let z = 1.0 - 2.0 * i as f64 / (n - 1) as f64;
             let radius = (1.0 - z * z).sqrt();
-            
+
             points.push(Vec3 {
                 x: (theta.cos() * radius) as f32,
                 y: (theta.sin() * radius) as f32,
                 z: z as f32,
             });
         }
-        
+
         points
     }
 }
@@ -477,22 +477,22 @@ struct SpiralDistribution {
 // Start with icosahedron, recursively subdivide
 struct IcosahedralSphere {
     subdivision_level: u32,
-    
+
     fn generate(&self) -> Vec<Vec3> {
         let mut vertices = self.icosahedron_vertices();
         let mut faces = self.icosahedron_faces();
-        
+
         for _ in 0..self.subdivision_level {
             let (new_vertices, new_faces) = self.subdivide(vertices, faces);
             vertices = new_vertices;
             faces = new_faces;
         }
-        
+
         // Normalize all vertices to unit sphere
         vertices.iter_mut().for_each(|v| *v = v.normalize());
         vertices
     }
-    
+
     fn subdivide(&self, vertices: Vec<Vec3>, faces: Vec<[usize; 3]>) -> (Vec<Vec3>, Vec<[usize; 3]>) {
         // Subdivide each triangle into 4 smaller triangles
         // Implementation details...
@@ -505,31 +505,31 @@ struct IcosahedralSphere {
 // Thomson problem solutions - minimize potential energy
 struct ThomsonSphere {
     n_points: usize,
-    
+
     fn optimize(&self, initial: Vec<Vec3>) -> Vec<Vec3> {
         let mut points = initial;
         let mut temperature = 1.0;
-        
+
         for iteration in 0..1000 {
             // Compute repulsive forces
             let forces = self.compute_forces(&points);
-            
+
             // Update positions
             for (i, force) in forces.iter().enumerate() {
                 points[i] += *force * temperature;
                 points[i] = points[i].normalize();
             }
-            
+
             // Simulated annealing
             temperature *= 0.99;
         }
-        
+
         points
     }
-    
+
     fn compute_forces(&self, points: &[Vec3]) -> Vec<Vec3> {
         let mut forces = vec![Vec3::ZERO; points.len()];
-        
+
         for i in 0..points.len() {
             for j in 0..points.len() {
                 if i != j {
@@ -539,7 +539,7 @@ struct ThomsonSphere {
                 }
             }
         }
-        
+
         forces
     }
 }
@@ -550,24 +550,24 @@ struct ThomsonSphere {
 // Poisson disk sampling on sphere
 struct BlueNoiseSphere {
     min_distance: f32,
-    
+
     fn generate(&self, n_target: usize) -> Vec<Vec3> {
         let mut points = Vec::new();
         let mut active = Vec::new();
-        
+
         // Start with random point
         let initial = Vec3::random_unit();
         points.push(initial);
         active.push(initial);
-        
+
         while !active.is_empty() && points.len() < n_target {
             let idx = rand::random::<usize>() % active.len();
             let base = active[idx];
-            
+
             let mut found = false;
             for _ in 0..30 {  // k attempts
                 let candidate = self.random_point_near(base);
-                
+
                 if self.is_valid(&candidate, &points) {
                     points.push(candidate);
                     active.push(candidate);
@@ -575,12 +575,12 @@ struct BlueNoiseSphere {
                     break;
                 }
             }
-            
+
             if !found {
                 active.swap_remove(idx);
             }
         }
-        
+
         points
     }
 }
@@ -607,11 +607,11 @@ struct BlueNoiseSphere {
 struct RotationCompressor {
     axis_sphere: FibonacciSphere,  // For rotation axis
     angle_bits: u8,                 // Bits for angle storage
-    
+
     fn compress_quaternion(&self, q: Quaternion) -> CompressedRotation {
         // Convert quaternion to axis-angle
         let (axis, angle) = q.to_axis_angle();
-        
+
         // Handle identity rotation
         if angle.abs() < EPSILON {
             return CompressedRotation {
@@ -619,28 +619,28 @@ struct RotationCompressor {
                 angle_discrete: 0,
             };
         }
-        
+
         // Encode axis using Fibonacci sphere
         let axis_index = self.axis_sphere.vector_to_index(axis);
-        
+
         // Discretize angle
         let angle_steps = 1 << self.angle_bits;
         let angle_discrete = ((angle + PI) / (2.0 * PI) * angle_steps as f64) as u32;
-        
+
         CompressedRotation {
             axis_index,
             angle_discrete,
         }
     }
-    
+
     fn decompress_quaternion(&self, compressed: CompressedRotation) -> Quaternion {
         // Recover axis
         let axis = self.axis_sphere.index_to_vector(compressed.axis_index);
-        
+
         // Recover angle
         let angle_steps = 1 << self.angle_bits;
         let angle = (compressed.angle_discrete as f64 / angle_steps as f64) * 2.0 * PI - PI;
-        
+
         Quaternion::from_axis_angle(axis, angle)
     }
 }
@@ -659,10 +659,10 @@ struct CompressedRotation {
 struct DeltaRotationCompressor {
     // Store only changes from identity or previous frame
     base_rotation: Quaternion,
-    
+
     fn compress_delta(&self, q: Quaternion) -> DeltaRotation {
         let delta = self.base_rotation.inverse() * q;
-        
+
         // Small angle approximation
         if delta.w > 0.99 {  // < 8° rotation
             // Store as scaled Rodrigues parameters
@@ -693,28 +693,28 @@ enum DeltaRotation {
 struct VelocityCompressor {
     // Domain-specific bounds
     max_velocity: f32,  // e.g., 2.0 m/s for water
-    
+
     // Fibonacci sphere for direction
     direction_sphere: FibonacciSphere,
-    
+
     fn compress(&self, velocity: Vec3) -> CompressedVelocity {
         let magnitude = velocity.magnitude();
-        
+
         if magnitude < EPSILON {
             return CompressedVelocity {
                 direction_index: 0,
                 magnitude_discrete: 0,
             };
         }
-        
+
         // Encode direction
         let direction = velocity / magnitude;
         let direction_index = self.direction_sphere.vector_to_index(direction);
-        
+
         // Encode magnitude (non-linear quantization)
         let magnitude_normalized = (magnitude / self.max_velocity).clamp(0.0, 1.0);
         let magnitude_discrete = (magnitude_normalized.sqrt() * 65535.0) as u16;
-        
+
         CompressedVelocity {
             direction_index,
             magnitude_discrete,
@@ -737,7 +737,7 @@ struct HierarchicalCompressor {
     coarse_sphere: FibonacciSphere,    // 256 points (8 bits)
     medium_sphere: FibonacciSphere,    // 4096 points (12 bits)
     fine_sphere: FibonacciSphere,      // 65536 points (16 bits)
-    
+
     fn compress_adaptive(&self, vector: Vec3, importance: f32) -> AdaptiveVector {
         if importance < 0.3 {
             AdaptiveVector::Coarse(self.coarse_sphere.vector_to_index(vector) as u8)
@@ -776,12 +776,34 @@ Total: 116 bits
 Compression ratio: 320/116 = 2.76× (64% reduction!)
 ```
 
+### After Optimization with Bit-Packing
+```
+Per simulation point:
+- Velocity: 32 bits (Fibonacci sphere index: 24 bits, magnitude: 8 bits)
+- Rotation: 32 bits (Fibonacci sphere index: 24 bits, angle: 8 bits)
+- Pressure: 12 bits (quantized to range)
+- Temperature: 10 bits (quantized to range) 
+- Density: 10 bits (quantized to range)
+Total: 96 bits (packed into 3 × 32-bit words)
+
+Word 1: Velocity (32 bits)
+Word 2: Rotation (32 bits)  
+Word 3: Pressure(12) + Temperature(10) + Density(10) bits
+
+Compression ratio: 320/96 = 3.33× (70% reduction!)
+```
+
 ### Large-Scale Impact
 ```
 1 billion points × 100 timesteps:
-- Before: 4 TB
-- After: 1.45 TB
-- Saved: 2.55 TB
+- Before: 320 bits/point = 4 TB total
+- After (basic): 116 bits/point = 1.45 TB total  
+- After (bit-packed): 96 bits/point = 1.2 TB total
+- Saved: 2.8 TB (70% reduction)
+
+Memory bandwidth savings:
+- Basic optimization: 2.76× faster transfers
+- Bit-packed optimization: 3.33× faster transfers
 ```
 
 ## 9. GPU Implementation
@@ -791,11 +813,11 @@ Compression ratio: 320/116 = 2.76× (64% reduction!)
 ```cuda
 __device__ float3 fibonacci_sphere_point(uint32_t index, uint32_t n_points) {
     const float golden_angle = 2.399963229728653f;
-    
+
     float y = 1.0f - 2.0f * index / (n_points - 1.0f);
     float radius = sqrtf(1.0f - y * y);
     float theta = golden_angle * index;
-    
+
     return make_float3(
         radius * cosf(theta),
         y,
@@ -812,16 +834,16 @@ __global__ void decompress_velocities(
 ) {
     uint32_t idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx >= count) return;
-    
+
     CompressedVelocity cv = compressed[idx];
-    
+
     // Decode direction
     float3 direction = fibonacci_sphere_point(cv.direction_index, n_sphere_points);
-    
+
     // Decode magnitude (inverse square root quantization)
     float magnitude_normalized = cv.magnitude_discrete / 65535.0f;
     float magnitude = magnitude_normalized * magnitude_normalized * max_velocity;
-    
+
     velocities[idx] = direction * magnitude;
 }
 ```
@@ -834,7 +856,7 @@ struct GPUFibonacciLUT {
     lut_256: CudaBuffer<Vec3>,
     lut_4096: CudaBuffer<Vec3>,
     lut_65536: CudaBuffer<Vec3>,
-    
+
     // Spatial acceleration structure
     spatial_grid: CudaTexture3D,
 }
@@ -847,25 +869,25 @@ struct GPUFibonacciLUT {
 ```rust
 fn analyze_fibonacci_error(n_points: u32) {
     let sphere = FibonacciSphere::new(n_points);
-    
+
     // Maximum angle between adjacent points
     let max_angle = (4.0 * PI / n_points as f64).sqrt();
-    
+
     // RMS error for random vectors
     let mut total_error = 0.0;
     let samples = 1_000_000;
-    
+
     for _ in 0..samples {
         let original = Vec3::random_unit();
         let index = sphere.vector_to_index(original);
         let recovered = sphere.index_to_vector(index);
-        
+
         let error = (original - recovered).magnitude();
         total_error += error * error;
     }
-    
+
     let rms_error = (total_error / samples as f64).sqrt();
-    println!("N={}, Max angle={:.2}°, RMS error={:.6}", 
+    println!("N={}, Max angle={:.2}°, RMS error={:.6}",
              n_points, max_angle.to_degrees(), rms_error);
 }
 
@@ -892,7 +914,7 @@ struct NeuralCompressor {
     // Learn optimal point distribution from data
     encoder_network: NeuralNetwork,
     decoder_network: NeuralNetwork,
-    
+
     // Adaptive to simulation type
     training_data: SimulationDataset,
 }
