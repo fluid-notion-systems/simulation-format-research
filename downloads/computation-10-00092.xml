@@ -1,0 +1,2686 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE article PUBLIC "-//NLM//DTD JATS (Z39.96) Journal Publishing DTD v1.3 20210610//EN" "JATS-journalpublishing1-3.dtd">
+<article xmlns:mml="http://www.w3.org/1998/Math/MathML" xmlns:xlink="http://www.w3.org/1999/xlink" article-type="research-article" dtd-version="1.3" xml:lang="en">
+  <front>
+    <journal-meta>
+      <journal-id journal-id-type="publisher-id">computation</journal-id>
+      <journal-title-group>
+        <journal-title>Computation</journal-title>
+        <abbrev-journal-title abbrev-type="publisher">Computation</abbrev-journal-title>
+        <abbrev-journal-title abbrev-type="pubmed">Computation</abbrev-journal-title>
+      </journal-title-group>
+      <issn pub-type="epub">2079-3197</issn>
+      <publisher>
+        <publisher-name>MDPI</publisher-name>
+      </publisher>
+    </journal-meta>
+    <article-meta>
+      <article-id pub-id-type="doi">10.3390/computation10060092</article-id>
+      <article-id pub-id-type="publisher-id">computation-10-00092</article-id>
+      <article-categories>
+        <subj-group>
+          <subject>Article</subject>
+        </subj-group>
+      </article-categories>
+      <title-group>
+        <article-title>Esoteric Pull and Esoteric Push: Two Simple In-Place Streaming Schemes for the Lattice Boltzmann Method on GPUs</article-title>
+      </title-group>
+      <contrib-group>
+        <contrib contrib-type="author">
+          <contrib-id contrib-id-type="orcid" authenticated="true">https://orcid.org/0000-0002-4652-8383</contrib-id>
+          <name>
+            <surname>Lehmann</surname>
+            <given-names>Moritz</given-names>
+          </name>
+        </contrib>
+      </contrib-group>
+      <contrib-group>
+        <contrib contrib-type="editor">
+          <name>
+            <surname>Karabasov</surname>
+            <given-names>Sergey A.</given-names>
+          </name>
+          <role>Academic Editor</role>
+        </contrib>
+      </contrib-group>
+      <aff id="af1-computation-10-00092">Biofluid Simulation and Modeling&#x2014;Theoretische Physik VI, University of Bayreuth, 95447 Bayreuth, Germany; <email>moritz.lehmann@uni-bayreuth.de</email></aff>
+      <pub-date pub-type="epub">
+        <day>02</day>
+        <month>06</month>
+        <year>2022</year>
+      </pub-date>
+      <pub-date pub-type="collection">
+        <month>06</month>
+        <year>2022</year>
+      </pub-date>
+      <volume>10</volume>
+      <issue>6</issue>
+      <elocation-id>92</elocation-id>
+      <history>
+        <date date-type="received">
+          <day>01</day>
+          <month>04</month>
+          <year>2022</year>
+        </date>
+        <date date-type="accepted">
+          <day>27</day>
+          <month>05</month>
+          <year>2022</year>
+        </date>
+      </history>
+      <permissions>
+        <copyright-statement>&#xA9; 2022 by the author.</copyright-statement>
+        <copyright-year>2022</copyright-year>
+        <license license-type="open-access">
+          <license-p>Licensee MDPI, Basel, Switzerland. This article is an open access article distributed under the terms and conditions of the Creative Commons Attribution (CC BY) license (<ext-link ext-link-type="uri" xlink:href="https://creativecommons.org/licenses/by/4.0/">https://creativecommons.org/licenses/by/4.0/</ext-link>).</license-p>
+        </license>
+      </permissions>
+      <abstract>
+        <p>I present two novel thread-safe in-place streaming schemes for the lattice Boltzmann method (LBM) on graphics processing units (GPUs), termed Esoteric Pull and Esoteric Push, that result in the LBM only requiring one copy of the density distribution functions (DDFs) instead of two, greatly reducing memory demand. These build upon the idea of the existing Esoteric Twist scheme, to stream half of the DDFs at the end of one stream-collide kernel and the remaining half at the beginning of the next, and offer the same beneficial properties over the AA-Pattern scheme&#x2014;reduced memory bandwidth due to implicit bounce-back boundaries and the possibility of swapping pointers between even and odd time steps. However, the streaming directions are chosen in a way that allows the algorithm to be implemented in about one tenth the amount of code, as two simple loops, and is compatible with all velocity sets and suitable for automatic code-generation. The performance of the new streaming schemes is slightly increased over Esoteric Twist due to better memory coalescence. Benchmarks across a large variety of GPUs and CPUs show that for most dedicated GPUs, performance differs only insignificantly from the One-Step Pull scheme; however, for integrated GPUs and CPUs, performance is significantly improved. The two proposed algorithms greatly facilitate modifying existing code to in-place streaming, even with extensions already in place, such as demonstrated here for the Free Surface LBM implementation FluidX3D. Their simplicity, together with their ideal performance characteristics, may enable more widespread adoption of in-place streaming across LBM GPU codes.</p>
+      </abstract>
+      <kwd-group>
+        <kwd>lattice Boltzmann method</kwd>
+        <kwd>GPU</kwd>
+        <kwd>in-place streaming</kwd>
+        <kwd>swap algorithm</kwd>
+        <kwd>Esoteric Twist</kwd>
+        <kwd>memory</kwd>
+        <kwd>memory bandwidth</kwd>
+        <kwd>Volume-of-Fluid</kwd>
+        <kwd>FluidX3D</kwd>
+        <kwd>OpenCL</kwd>
+      </kwd-group>
+      <funding-group>
+        <award-group>
+          <funding-source>Deutsche Forschungsgemeinschaft (DFG, German Research Foundation)</funding-source>
+          <award-id>391977956&#x2014;SFB 1357</award-id>
+        </award-group>
+        <funding-statement>This study was funded by the Deutsche Forschungsgemeinschaft (DFG, German Research Foundation)&#x2014;Project Number 391977956&#x2014;SFB 1357.</funding-statement>
+      </funding-group>
+    </article-meta>
+  </front>
+  <body>
+    <sec sec-type="intro" id="sec1-computation-10-00092">
+      <title>1. Introduction</title>
+      <p>The lattice Boltzmann method (LBM)&#xA0;[<xref ref-type="bibr" rid="B1-computation-10-00092">1</xref>] is a type of direct numerical simulation (DNS) to model fluid flow in a physically accurate manner. Its explicit algorithmic structure makes it ideal for parallelization on graphics processing units (GPUs) [<xref ref-type="bibr" rid="B2-computation-10-00092">2</xref>,<xref ref-type="bibr" rid="B3-computation-10-00092">3</xref>,<xref ref-type="bibr" rid="B4-computation-10-00092">4</xref>,<xref ref-type="bibr" rid="B5-computation-10-00092">5</xref>,<xref ref-type="bibr" rid="B6-computation-10-00092">6</xref>,<xref ref-type="bibr" rid="B7-computation-10-00092">7</xref>,<xref ref-type="bibr" rid="B8-computation-10-00092">8</xref>,<xref ref-type="bibr" rid="B9-computation-10-00092">9</xref>,<xref ref-type="bibr" rid="B10-computation-10-00092">10</xref>,<xref ref-type="bibr" rid="B11-computation-10-00092">11</xref>,<xref ref-type="bibr" rid="B12-computation-10-00092">12</xref>,<xref ref-type="bibr" rid="B13-computation-10-00092">13</xref>,<xref ref-type="bibr" rid="B14-computation-10-00092">14</xref>,<xref ref-type="bibr" rid="B15-computation-10-00092">15</xref>,<xref ref-type="bibr" rid="B16-computation-10-00092">16</xref>,<xref ref-type="bibr" rid="B17-computation-10-00092">17</xref>,<xref ref-type="bibr" rid="B18-computation-10-00092">18</xref>,<xref ref-type="bibr" rid="B19-computation-10-00092">19</xref>,<xref ref-type="bibr" rid="B20-computation-10-00092">20</xref>,<xref ref-type="bibr" rid="B21-computation-10-00092">21</xref>,<xref ref-type="bibr" rid="B22-computation-10-00092">22</xref>,<xref ref-type="bibr" rid="B23-computation-10-00092">23</xref>,<xref ref-type="bibr" rid="B24-computation-10-00092">24</xref>,<xref ref-type="bibr" rid="B25-computation-10-00092">25</xref>,<xref ref-type="bibr" rid="B26-computation-10-00092">26</xref>,<xref ref-type="bibr" rid="B27-computation-10-00092">27</xref>,<xref ref-type="bibr" rid="B28-computation-10-00092">28</xref>,<xref ref-type="bibr" rid="B29-computation-10-00092">29</xref>,<xref ref-type="bibr" rid="B30-computation-10-00092">30</xref>,<xref ref-type="bibr" rid="B31-computation-10-00092">31</xref>,<xref ref-type="bibr" rid="B32-computation-10-00092">32</xref>,<xref ref-type="bibr" rid="B33-computation-10-00092">33</xref>,<xref ref-type="bibr" rid="B34-computation-10-00092">34</xref>,<xref ref-type="bibr" rid="B35-computation-10-00092">35</xref>,<xref ref-type="bibr" rid="B36-computation-10-00092">36</xref>,<xref ref-type="bibr" rid="B37-computation-10-00092">37</xref>,<xref ref-type="bibr" rid="B38-computation-10-00092">38</xref>,<xref ref-type="bibr" rid="B39-computation-10-00092">39</xref>,<xref ref-type="bibr" rid="B40-computation-10-00092">40</xref>,<xref ref-type="bibr" rid="B41-computation-10-00092">41</xref>,<xref ref-type="bibr" rid="B42-computation-10-00092">42</xref>,<xref ref-type="bibr" rid="B43-computation-10-00092">43</xref>,<xref ref-type="bibr" rid="B44-computation-10-00092">44</xref>,<xref ref-type="bibr" rid="B45-computation-10-00092">45</xref>,<xref ref-type="bibr" rid="B46-computation-10-00092">46</xref>,<xref ref-type="bibr" rid="B47-computation-10-00092">47</xref>,<xref ref-type="bibr" rid="B48-computation-10-00092">48</xref>,<xref ref-type="bibr" rid="B49-computation-10-00092">49</xref>,<xref ref-type="bibr" rid="B50-computation-10-00092">50</xref>,<xref ref-type="bibr" rid="B51-computation-10-00092">51</xref>,<xref ref-type="bibr" rid="B52-computation-10-00092">52</xref>,<xref ref-type="bibr" rid="B53-computation-10-00092">53</xref>,<xref ref-type="bibr" rid="B54-computation-10-00092">54</xref>,<xref ref-type="bibr" rid="B55-computation-10-00092">55</xref>,<xref ref-type="bibr" rid="B56-computation-10-00092">56</xref>,<xref ref-type="bibr" rid="B57-computation-10-00092">57</xref>,<xref ref-type="bibr" rid="B58-computation-10-00092">58</xref>,<xref ref-type="bibr" rid="B59-computation-10-00092">59</xref>]. The LBM works on a mesoscopic scale, representing quantities of fluid molecules by density distribution functions (DDFs) that are exchanged (streamed) between neighboring points on a Cartesian lattice. These DDFs are represented as floating-point numbers, and the streaming consists of copying them to the memory locations associated with neighboring lattice points. So, the LBM algorithm, at its core, copies floating-point numbers in memory with little arithmetic computation in between, meaning its performance is bound by memory bandwidth&#xA0;[<xref ref-type="bibr" rid="B3-computation-10-00092">3</xref>,<xref ref-type="bibr" rid="B4-computation-10-00092">4</xref>,<xref ref-type="bibr" rid="B5-computation-10-00092">5</xref>,<xref ref-type="bibr" rid="B6-computation-10-00092">6</xref>,<xref ref-type="bibr" rid="B7-computation-10-00092">7</xref>,<xref ref-type="bibr" rid="B8-computation-10-00092">8</xref>,<xref ref-type="bibr" rid="B9-computation-10-00092">9</xref>,<xref ref-type="bibr" rid="B10-computation-10-00092">10</xref>,<xref ref-type="bibr" rid="B13-computation-10-00092">13</xref>,<xref ref-type="bibr" rid="B14-computation-10-00092">14</xref>,<xref ref-type="bibr" rid="B15-computation-10-00092">15</xref>,<xref ref-type="bibr" rid="B16-computation-10-00092">16</xref>,<xref ref-type="bibr" rid="B17-computation-10-00092">17</xref>,<xref ref-type="bibr" rid="B18-computation-10-00092">18</xref>,<xref ref-type="bibr" rid="B19-computation-10-00092">19</xref>,<xref ref-type="bibr" rid="B20-computation-10-00092">20</xref>,<xref ref-type="bibr" rid="B21-computation-10-00092">21</xref>,<xref ref-type="bibr" rid="B22-computation-10-00092">22</xref>,<xref ref-type="bibr" rid="B33-computation-10-00092">33</xref>,<xref ref-type="bibr" rid="B34-computation-10-00092">34</xref>,<xref ref-type="bibr" rid="B35-computation-10-00092">35</xref>,<xref ref-type="bibr" rid="B36-computation-10-00092">36</xref>,<xref ref-type="bibr" rid="B37-computation-10-00092">37</xref>,<xref ref-type="bibr" rid="B38-computation-10-00092">38</xref>,<xref ref-type="bibr" rid="B39-computation-10-00092">39</xref>,<xref ref-type="bibr" rid="B40-computation-10-00092">40</xref>,<xref ref-type="bibr" rid="B41-computation-10-00092">41</xref>,<xref ref-type="bibr" rid="B42-computation-10-00092">42</xref>,<xref ref-type="bibr" rid="B43-computation-10-00092">43</xref>,<xref ref-type="bibr" rid="B44-computation-10-00092">44</xref>,<xref ref-type="bibr" rid="B45-computation-10-00092">45</xref>,<xref ref-type="bibr" rid="B46-computation-10-00092">46</xref>,<xref ref-type="bibr" rid="B59-computation-10-00092">59</xref>,<xref ref-type="bibr" rid="B60-computation-10-00092">60</xref>,<xref ref-type="bibr" rid="B61-computation-10-00092">61</xref>,<xref ref-type="bibr" rid="B62-computation-10-00092">62</xref>,<xref ref-type="bibr" rid="B63-computation-10-00092">63</xref>,<xref ref-type="bibr" rid="B64-computation-10-00092">64</xref>,<xref ref-type="bibr" rid="B65-computation-10-00092">65</xref>].</p>
+      <p>Since each lattice point holds the same number of DDFs and they need to be exchanged between one another at every time step, a strategy for avoiding data dependencies on parallel hardware is needed. The most straightforward and most common approach&#xA0;[<xref ref-type="bibr" rid="B12-computation-10-00092">12</xref>,<xref ref-type="bibr" rid="B13-computation-10-00092">13</xref>,<xref ref-type="bibr" rid="B14-computation-10-00092">14</xref>,<xref ref-type="bibr" rid="B15-computation-10-00092">15</xref>,<xref ref-type="bibr" rid="B16-computation-10-00092">16</xref>,<xref ref-type="bibr" rid="B17-computation-10-00092">17</xref>,<xref ref-type="bibr" rid="B18-computation-10-00092">18</xref>,<xref ref-type="bibr" rid="B19-computation-10-00092">19</xref>,<xref ref-type="bibr" rid="B20-computation-10-00092">20</xref>,<xref ref-type="bibr" rid="B21-computation-10-00092">21</xref>,<xref ref-type="bibr" rid="B22-computation-10-00092">22</xref>,<xref ref-type="bibr" rid="B23-computation-10-00092">23</xref>,<xref ref-type="bibr" rid="B24-computation-10-00092">24</xref>,<xref ref-type="bibr" rid="B25-computation-10-00092">25</xref>,<xref ref-type="bibr" rid="B26-computation-10-00092">26</xref>,<xref ref-type="bibr" rid="B27-computation-10-00092">27</xref>,<xref ref-type="bibr" rid="B28-computation-10-00092">28</xref>,<xref ref-type="bibr" rid="B29-computation-10-00092">29</xref>,<xref ref-type="bibr" rid="B30-computation-10-00092">30</xref>,<xref ref-type="bibr" rid="B31-computation-10-00092">31</xref>,<xref ref-type="bibr" rid="B32-computation-10-00092">32</xref>,<xref ref-type="bibr" rid="B33-computation-10-00092">33</xref>,<xref ref-type="bibr" rid="B34-computation-10-00092">34</xref>,<xref ref-type="bibr" rid="B35-computation-10-00092">35</xref>,<xref ref-type="bibr" rid="B36-computation-10-00092">36</xref>,<xref ref-type="bibr" rid="B37-computation-10-00092">37</xref>,<xref ref-type="bibr" rid="B38-computation-10-00092">38</xref>,<xref ref-type="bibr" rid="B39-computation-10-00092">39</xref>,<xref ref-type="bibr" rid="B40-computation-10-00092">40</xref>,<xref ref-type="bibr" rid="B41-computation-10-00092">41</xref>,<xref ref-type="bibr" rid="B42-computation-10-00092">42</xref>,<xref ref-type="bibr" rid="B43-computation-10-00092">43</xref>,<xref ref-type="bibr" rid="B44-computation-10-00092">44</xref>] is to have two copies, A and B, of the DDFs residing in memory; the algorithms reads from A and writes to B in even steps and in odd steps vice versa. With two copies of the DDFs, the memory access can even be configured to result in only partially misaligned reads and only coalesced writes (the One-Step-Pull scheme), enabling peak memory efficiency on modern GPUs&#xA0;[<xref ref-type="bibr" rid="B13-computation-10-00092">13</xref>,<xref ref-type="bibr" rid="B14-computation-10-00092">14</xref>,<xref ref-type="bibr" rid="B15-computation-10-00092">15</xref>,<xref ref-type="bibr" rid="B16-computation-10-00092">16</xref>,<xref ref-type="bibr" rid="B17-computation-10-00092">17</xref>,<xref ref-type="bibr" rid="B18-computation-10-00092">18</xref>,<xref ref-type="bibr" rid="B19-computation-10-00092">19</xref>,<xref ref-type="bibr" rid="B20-computation-10-00092">20</xref>,<xref ref-type="bibr" rid="B21-computation-10-00092">21</xref>,<xref ref-type="bibr" rid="B22-computation-10-00092">22</xref>,<xref ref-type="bibr" rid="B23-computation-10-00092">23</xref>]. This solves the data dependencies but comes at the cost of almost doubling memory demand. Unfortunately, memory capacity is the largest constraint on GPUs&#xA0;[<xref ref-type="bibr" rid="B58-computation-10-00092">58</xref>], limiting the maximum possible lattice resolution. To eliminate the higher memory demand and at the same time resolve data dependencies, a class of thread-safe in-place streaming algorithms have been developed. The first of these is termed the AA-Pattern&#xA0;[<xref ref-type="bibr" rid="B3-computation-10-00092">3</xref>], as it reads from A and at the same time writes to A in a special manner that does not violate data dependencies. The algorithm, however, is asymmetric for even and odd time steps, so it has not been widely adopted. A later variant of AA-Pattern is the Shift-and-Swap-Streaming method&#xA0;[<xref ref-type="bibr" rid="B4-computation-10-00092">4</xref>]. Geier and Sch&#xF6;nherr recently found a more intricate solution, termed Esoteric Twist&#xA0;[<xref ref-type="bibr" rid="B2-computation-10-00092">2</xref>], that is symmetric for even and odd time steps and, moreover, has the advantage of slightly reduced memory bandwidth and thus higher performance compared to AA-Pattern; however, its implementation is very complicated, hindering widespread adoption. Few works have thus far considered in-place streaming on GPUs&#xA0;[<xref ref-type="bibr" rid="B2-computation-10-00092">2</xref>,<xref ref-type="bibr" rid="B3-computation-10-00092">3</xref>,<xref ref-type="bibr" rid="B4-computation-10-00092">4</xref>,<xref ref-type="bibr" rid="B5-computation-10-00092">5</xref>,<xref ref-type="bibr" rid="B6-computation-10-00092">6</xref>,<xref ref-type="bibr" rid="B7-computation-10-00092">7</xref>,<xref ref-type="bibr" rid="B8-computation-10-00092">8</xref>,<xref ref-type="bibr" rid="B9-computation-10-00092">9</xref>,<xref ref-type="bibr" rid="B10-computation-10-00092">10</xref>,<xref ref-type="bibr" rid="B11-computation-10-00092">11</xref>,<xref ref-type="bibr" rid="B12-computation-10-00092">12</xref>], and apart from the works introducing the methods&#xA0;[<xref ref-type="bibr" rid="B2-computation-10-00092">2</xref>,<xref ref-type="bibr" rid="B3-computation-10-00092">3</xref>,<xref ref-type="bibr" rid="B4-computation-10-00092">4</xref>,<xref ref-type="bibr" rid="B5-computation-10-00092">5</xref>,<xref ref-type="bibr" rid="B66-computation-10-00092">66</xref>], only a few have adopted in-place streaming in their code&#xA0;[<xref ref-type="bibr" rid="B6-computation-10-00092">6</xref>,<xref ref-type="bibr" rid="B7-computation-10-00092">7</xref>,<xref ref-type="bibr" rid="B8-computation-10-00092">8</xref>,<xref ref-type="bibr" rid="B11-computation-10-00092">11</xref>].</p>
+      <p>This work introduces two new thread-safe in-place streaming schemes, termed Esoteric Pull and Esoteric Push, that are suitable for GPU implementation. They build upon the same idea as Esoteric Twist and offer ideal performance characteristics while at the same time significantly simplifying implementation and allowing for automatic code generation. The very simple and modular implementation is especially well suited to modifying existing LBM implementations, even if various extensions, such as Free Surface LBM, are already in&#xA0;place.</p>
+    </sec>
+    <sec id="sec2-computation-10-00092">
+      <title>2. Naive Implementation&#x2014;One-Step Pull and One-Step Push</title>
+      <p>The most common LBM implementation uses two copies of the DDFs in memory to resolve data dependencies in a parallel environment [<xref ref-type="bibr" rid="B12-computation-10-00092">12</xref>,<xref ref-type="bibr" rid="B13-computation-10-00092">13</xref>,<xref ref-type="bibr" rid="B14-computation-10-00092">14</xref>,<xref ref-type="bibr" rid="B15-computation-10-00092">15</xref>,<xref ref-type="bibr" rid="B16-computation-10-00092">16</xref>,<xref ref-type="bibr" rid="B17-computation-10-00092">17</xref>,<xref ref-type="bibr" rid="B18-computation-10-00092">18</xref>,<xref ref-type="bibr" rid="B19-computation-10-00092">19</xref>,<xref ref-type="bibr" rid="B20-computation-10-00092">20</xref>,<xref ref-type="bibr" rid="B21-computation-10-00092">21</xref>,<xref ref-type="bibr" rid="B22-computation-10-00092">22</xref>,<xref ref-type="bibr" rid="B23-computation-10-00092">23</xref>,<xref ref-type="bibr" rid="B24-computation-10-00092">24</xref>,<xref ref-type="bibr" rid="B25-computation-10-00092">25</xref>,<xref ref-type="bibr" rid="B26-computation-10-00092">26</xref>,<xref ref-type="bibr" rid="B27-computation-10-00092">27</xref>,<xref ref-type="bibr" rid="B28-computation-10-00092">28</xref>,<xref ref-type="bibr" rid="B29-computation-10-00092">29</xref>,<xref ref-type="bibr" rid="B30-computation-10-00092">30</xref>,<xref ref-type="bibr" rid="B31-computation-10-00092">31</xref>,<xref ref-type="bibr" rid="B32-computation-10-00092">32</xref>,<xref ref-type="bibr" rid="B33-computation-10-00092">33</xref>,<xref ref-type="bibr" rid="B34-computation-10-00092">34</xref>,<xref ref-type="bibr" rid="B35-computation-10-00092">35</xref>,<xref ref-type="bibr" rid="B36-computation-10-00092">36</xref>,<xref ref-type="bibr" rid="B37-computation-10-00092">37</xref>,<xref ref-type="bibr" rid="B38-computation-10-00092">38</xref>,<xref ref-type="bibr" rid="B39-computation-10-00092">39</xref>,<xref ref-type="bibr" rid="B40-computation-10-00092">40</xref>,<xref ref-type="bibr" rid="B41-computation-10-00092">41</xref>,<xref ref-type="bibr" rid="B42-computation-10-00092">42</xref>,<xref ref-type="bibr" rid="B43-computation-10-00092">43</xref>,<xref ref-type="bibr" rid="B44-computation-10-00092">44</xref>]. There are two variants, namely One-Step Pull (<xref ref-type="fig" rid="computation-10-00092-f001">Figure 1</xref>, <xref ref-type="boxed-text" rid="computation-10-00092-box0A1">Listing A1</xref>) and One-Step Push (<xref ref-type="fig" rid="computation-10-00092-f002">Figure 2</xref>, <xref ref-type="boxed-text" rid="computation-10-00092-box0A2">Listing A2</xref>). The pull variant is generally preferred on GPUs because the penalty for non-coalesced reads is smaller than that for non-coalesced writes&#xA0;[<xref ref-type="bibr" rid="B13-computation-10-00092">13</xref>,<xref ref-type="bibr" rid="B14-computation-10-00092">14</xref>,<xref ref-type="bibr" rid="B15-computation-10-00092">15</xref>,<xref ref-type="bibr" rid="B16-computation-10-00092">16</xref>,<xref ref-type="bibr" rid="B17-computation-10-00092">17</xref>,<xref ref-type="bibr" rid="B18-computation-10-00092">18</xref>,<xref ref-type="bibr" rid="B19-computation-10-00092">19</xref>,<xref ref-type="bibr" rid="B20-computation-10-00092">20</xref>,<xref ref-type="bibr" rid="B21-computation-10-00092">21</xref>,<xref ref-type="bibr" rid="B22-computation-10-00092">22</xref>,<xref ref-type="bibr" rid="B23-computation-10-00092">23</xref>]. The coloring introduced in <xref ref-type="fig" rid="computation-10-00092-f001">Figure 1</xref> and <xref ref-type="fig" rid="computation-10-00092-f002">Figure 2</xref> illustrates how loading/storing patterns compare to the regular DDF sequence during collision in registers, in other words, where exactly each DDF is loaded and stored in memory. This makes the more recently introduced, more sophisticated streaming patterns more comprehensible. In the One-Step-Pull scheme, DDFs are pulled in from neighbors (copy A of the DDFs), collided, and stored at the center node (copy B of the DDFs). In the One-Step-Push scheme, DDFs are loaded from the center node (copy A of the DDFs), collided, and then pushed out to neighbors (copy B of the DDFs). For both schemes, after every time step, the pointers to A and B are swapped.</p>
+    </sec>
+    <sec id="sec3-computation-10-00092">
+      <title>3. State-of-the-Art Methods for In-Place Streaming on GPUs</title>
+      <p>The data dependency problem with in-place streaming on parallel hardware has already been solved by two major approaches, termed AA-Pattern and Esoteric Twist. Both provide the great advantage of significantly reducing memory demand for the LBM; however, both also pose various difficulties in GPU implementation, hindering widespread&#xA0;adoption.</p>
+      <sec id="sec3dot1-computation-10-00092">
+        <title>3.1. AA-Pattern</title>
+        <p>When performing the LBM streaming step on parallel hardware, the issue arises that neighboring lattice points may be processed in parallel, and the exact order of execution is random. One or more threads may not write an updated value to a memory address from which another concurrent thread is reading, because then either the old or the new value may be used by the reading thread. This error is known as a race condition. To perform the LBM streaming step in parallel with only a single buffer for the DDFs, one must write updated values only to the same memory addresses that one thread has previously read the values from. Then, no two threads access the same memory addresses. Bailey et al.&#xA0;[<xref ref-type="bibr" rid="B3-computation-10-00092">3</xref>] have found that this is possible if, for even time steps combining one streaming step, the collision and a second streaming step are performed, and for odd time steps, only the collision step is performed. This makes the processed DDFs always end up in the same locations as they were read from, resolving data dependencies on concurrent hardware with only one copy of the DDFs in memory. To make the DDFs actually stream through memory locations, in even time steps, the DDFs are stored at the neighbor nodes in opposite orientation after the collision, and in odd time steps, before the collision, the DDFs are loaded from the center node in opposite orientation. The resulting algorithm reads the DDFs from copy A of the DDFs and writes to the same copy A in place, so it was termed AA-Pattern (<xref ref-type="fig" rid="computation-10-00092-f003">Figure 3</xref>, <xref ref-type="boxed-text" rid="computation-10-00092-box0A3">Listing A3</xref>). It is a popular but mistaken belief that the different even and odd time steps require duplicate implementation of the stream_collide kernel because the pointers to the DDFs cannot be swapped in between time steps. The loading and storing of the DDFs before and after collision can be placed in functions, and when the LBM time step is passed as a parameter, these functions then switch between loading/storing the DDFs from/to neighbors or at the center point (see <xref ref-type="boxed-text" rid="computation-10-00092-box0A3">Listing A3</xref>). The stream_collide kernel then contains calls to these two functions before and after collision, and no duplicate implementation is required. Note that there are also two more modern variants of the AA-Pattern, termed Shift-and-Swap Streaming (SSS)&#xA0;[<xref ref-type="bibr" rid="B4-computation-10-00092">4</xref>] and Periodic Shift (PS)&#xA0;[<xref ref-type="bibr" rid="B5-computation-10-00092">5</xref>], offering benefits in programming languages where pointer arithmetic is available.</p>
+      </sec>
+      <sec id="sec3dot2-computation-10-00092">
+        <title>3.2. Esoteric Twist</title>
+        <p>The idea of the Esoteric Twist in-place streaming scheme (<xref ref-type="fig" rid="computation-10-00092-f004">Figure 4</xref>, <xref ref-type="boxed-text" rid="computation-10-00092-box0A4">Listing A4</xref>) is to pull only DDFs for negative directions, execute the collision, and then push only DDFs for positive directions&#xA0;[<xref ref-type="bibr" rid="B2-computation-10-00092">2</xref>]. To resolve data dependencies on concurrent hardware, in even steps, the DDFs are stored in opposite orientation after the collision, and in odd time steps, before the collision, the DDFs are loaded in opposite orientation.</p>
+        <p>Esoteric Twist resembles a criss-cross access pattern shifted north-east by half a node, accessing the DDFs at a total of 4 nodes (in the 2D case) or up to 8 nodes (in 3D). For certain implementations, this reduces the number of ghost nodes required, but it makes the implementation of the index calculation tedious as it requires manually writing the indices, which are different across velocity sets. On top of this, for some velocity sets such as D3Q15, additional streaming directions must be computed beyond the streaming directions of the velocity set (see <xref ref-type="boxed-text" rid="computation-10-00092-box0A4">Listing A4</xref>), making the already tedious implementation even more cumbersome. This is an obstacle to implementing different velocity sets in a modular manner or with code generation. With some LBM extensions such as Volume-of-Fluid, duplicate (inverse) implementation of the streaming is required, so Esoteric Twist becomes very impractical.</p>
+      </sec>
+    </sec>
+    <sec id="sec4-computation-10-00092">
+      <title>4. New Methods: Esoteric Pull and Esoteric Push</title>
+      <p>My two novel in-place streaming algorithms are based on the same idea as the Esoteric Twist scheme, namely that only DDFs in negative directions are pulled before collision, and that after collision only DDFs in positive directions are pushed. Thus, half of the DDFs are streamed at the end of one stream_collide kernel and the other half at the beginning of the&#xA0;next.</p>
+      <p>The important observation I made is that the shifted criss-cross pattern of Esoteric Twist is not essential for the swap algorithm to work. I waive shifting the north-west to south-east DDFs north by one node in 2D, and waive shifting other diagonal directions in 3D, abandoning the shifted criss-cross pattern. Instead, the regular streaming direction neighbors are used. This enables a trivial index calculation in two four-line loops (unrolled by the compiler) for loading and storing in a way that works with all velocity sets out of the box. This also makes the implementation less redundant and much less prone to errors, and it further enables automatic code generation.</p>
+      <p>The Esoteric Pull scheme (<xref ref-type="fig" rid="computation-10-00092-f005">Figure 5</xref>, <xref ref-type="boxed-text" rid="computation-10-00092-box0A5">Listing A5</xref>) in 2D differs from Esoteric Twist (<xref ref-type="fig" rid="computation-10-00092-f004">Figure 4</xref>) only in the positions of the DDFs for the north-west to south-east directions, which are loaded/stored in their regular locations instead of shifted north by one node. In 3D, other diagonal directions are also not shifted, and their regular streaming directions are used instead to determine the streaming neighbor nodes. This has not only the advantage of trivial index calculation, but also improves memory coalescence for the DDFs in these diagonal directions that would be otherwise shifted by one lattice point with Esoteric Twist, leading to slightly higher performance demands.</p>
+      <p>The Esoteric Push scheme (<xref ref-type="fig" rid="computation-10-00092-f006">Figure 6</xref>, <xref ref-type="boxed-text" rid="computation-10-00092-box0A6">Listing A6</xref>) is essentially <xref ref-type="fig" rid="computation-10-00092-f005">Figure 5</xref> flipped by 180&#xA0;degrees (except for the temporary DDFs in registers), highlighting two distinct symmetry flips that can be performed independently of each other: a) switching streaming for positive/negative directions, and b) switching even/odd time steps.</p>
+      <p>Both schemes yield simulations that are bitwise identical to Esoteric Twist. If pointer arithmetic is available, the pointers of DDFs in positive and negative directions can be swapped in between time steps such that memory addressing is the same for all time steps, in the very same manner as for Esoteric Twist.</p>
+      <sec id="sec4dot1-computation-10-00092">
+        <title>4.1. Implicit Bounce-Back</title>
+        <p>In the very same manner as for the Esoteric Twist scheme&#xA0;[<xref ref-type="bibr" rid="B2-computation-10-00092">2</xref>], both Esoteric Pull and Esoteric Push offer the benefits of the ingeniously emerging implicit bounce-back boundaries. Due to the way the DDFs are flipped in orientation for regular fluid nodes, and because boundary nodes are not processed at all (with a guard clause at the very beginning of the stream_collide kernel), the DDFs of boundary nodes are not flipped in memory, so for neighboring fluid nodes, it appears as if their DDFs are already correctly flipped such that bounce-back boundaries automatically apply.</p>
+        <p>There are three distinct benefits to this side-effect of the Esoteric streaming schemes: (a)&#xA0;fluid nodes do not have to check the flags of their neighbors at all to apply bounce-back boundaries, reducing overall memory bandwidth and increasing performance slightly, (b)&#xA0;memory access is more coalesced, and (c) the implementation is simplified.</p>
+      </sec>
+      <sec id="sec4dot2-computation-10-00092">
+        <title>4.2. Comparison with Existing Streaming Schemes</title>
+        <p>When comparing the different streaming algorithms in <xref ref-type="table" rid="computation-10-00092-t001">Table 1</xref> for DdQq LBM, the advantages of in-place streaming become evident, such as reduced storage and, for the Esoteric algorithms, also reduced bandwidth. In-place streaming reduces memory demand by <inline-formula><mml:math id="mm1"><mml:semantics><mml:mrow><mml:mn>4</mml:mn><mml:mspace width="0.166667em"/><mml:mi>q</mml:mi></mml:mrow></mml:semantics></mml:math></inline-formula> Bytes/node. The Esoteric algorithms further reduce memory bandwidth by <inline-formula><mml:math id="mm2"><mml:semantics><mml:mrow><mml:mi>q</mml:mi><mml:mo>&#x2212;</mml:mo><mml:mn>1</mml:mn></mml:mrow></mml:semantics></mml:math></inline-formula> Byte/node per time step, as neighbor flags do not have to be checked for implicit bounce-back boundaries. Based on their storage and performance properties, Esoteric Pull/Push appear identical to Esoteric Twist, apart from slightly improved memory coalescence for the DDFs in some of the diagonal directions. The main improvements of Esoteric Pull/Push are located in the much more straightforward implementation that is compatible with all velocity sets. Instead of having to manually unroll the loops over the streaming directions and make sure that all indices are typed correctly for each velocity set, the streaming can now be written in a generic way as two short loops that are unrolled by the compiler (compare <xref ref-type="boxed-text" rid="computation-10-00092-box0A4">Listing A4</xref> and <xref ref-type="boxed-text" rid="computation-10-00092-box0A5">Listing A5</xref>). This also allows for automatic code generation that many LBM implementations heavily rely on and significantly improves code maintainability.</p>
+        <p>A recently proposed method for reducing storage and bandwidth by resorting to FP32/16-bit mixed precision&#xA0;[<xref ref-type="bibr" rid="B13-computation-10-00092">13</xref>] makes in-place streaming with the Esoteric schemes even more compelling, reducing memory storage from 169 to 55 Bytes/node&#x2014;less than one third&#x2014;and reducing bandwidth from 171 to 77 Bytes/node per time step for D3Q19. Less memory demand per node enables much larger lattice resolutions.</p>
+        <p>When comparing D3Q19 SRT performance of the different streaming algorithms on the Nvidia A100 40GB GPU with a FP32 single-precision floating-point, One-Step Pull serves as the baseline at <inline-formula><mml:math id="mm3"><mml:semantics><mml:mrow><mml:mn>8816</mml:mn><mml:mspace width="0.166667em"/><mml:mrow><mml:mi>MLUPs</mml:mi><mml:mo>/</mml:mo><mml:mi mathvariant="normal">s</mml:mi></mml:mrow></mml:mrow></mml:semantics></mml:math></inline-formula> (<inline-formula><mml:math id="mm4"><mml:semantics><mml:mrow><mml:mn>100</mml:mn><mml:mo>%</mml:mo></mml:mrow></mml:semantics></mml:math></inline-formula>). One-Step Push is slightly slower at <inline-formula><mml:math id="mm5"><mml:semantics><mml:mrow><mml:mn>8675</mml:mn><mml:mspace width="0.166667em"/><mml:mrow><mml:mi>MLUPs</mml:mi><mml:mo>/</mml:mo><mml:mi mathvariant="normal">s</mml:mi></mml:mrow></mml:mrow></mml:semantics></mml:math></inline-formula> (<inline-formula><mml:math id="mm6"><mml:semantics><mml:mrow><mml:mn>98</mml:mn><mml:mo>%</mml:mo></mml:mrow></mml:semantics></mml:math></inline-formula>). The AA-Pattern runs with <inline-formula><mml:math id="mm7"><mml:semantics><mml:mrow><mml:mn>8269</mml:mn><mml:mspace width="0.166667em"/><mml:mrow><mml:mi>MLUPs</mml:mi><mml:mo>/</mml:mo><mml:mi mathvariant="normal">s</mml:mi></mml:mrow></mml:mrow></mml:semantics></mml:math></inline-formula> (<inline-formula><mml:math id="mm8"><mml:semantics><mml:mrow><mml:mn>94</mml:mn><mml:mo>%</mml:mo></mml:mrow></mml:semantics></mml:math></inline-formula>), Esoteric Twist mitigates the efficiency losses with reduced bandwidth due to implicit bounce-back at <inline-formula><mml:math id="mm9"><mml:semantics><mml:mrow><mml:mn>8483</mml:mn><mml:mspace width="0.166667em"/><mml:mrow><mml:mi>MLUPs</mml:mi><mml:mo>/</mml:mo><mml:mi mathvariant="normal">s</mml:mi></mml:mrow></mml:mrow></mml:semantics></mml:math></inline-formula> (<inline-formula><mml:math id="mm10"><mml:semantics><mml:mrow><mml:mn>96</mml:mn><mml:mo>%</mml:mo></mml:mrow></mml:semantics></mml:math></inline-formula>), and Esoteric Pull/Push offer even slightly higher performance at <inline-formula><mml:math id="mm11"><mml:semantics><mml:mrow><mml:mn>8522</mml:mn><mml:mspace width="0.166667em"/><mml:mrow><mml:mi>MLUPs</mml:mi><mml:mo>/</mml:mo><mml:mi mathvariant="normal">s</mml:mi></mml:mrow></mml:mrow></mml:semantics></mml:math></inline-formula> (<inline-formula><mml:math id="mm12"><mml:semantics><mml:mrow><mml:mn>97</mml:mn><mml:mo>%</mml:mo></mml:mrow></mml:semantics></mml:math></inline-formula>), due to better memory coalescence for the diagonals that are shifted by one lattice point for Esoteric Twist. Looking at additional performance benchmarks across different hardware configurations (<xref ref-type="fig" rid="computation-10-00092-f007">Figure 7</xref>), the benefit of less memory bandwidth usage due to implicit bounce-back approximately cancels out the drawback of more inefficient, partially misaligned writes due to the inherent symmetry of the memory access. In comparison with the One-Step-Pull streaming scheme&#xA0;[<xref ref-type="bibr" rid="B13-computation-10-00092">13</xref>], although memory efficiency is lower, performance changes only insignificantly on most dedicated GPUs, with some performance increase for FP32/FP16 mixed precision. On integrated GPUs and on CPUs, however, there is a significant increase in performance due to more efficient use of on-chip cache with in-place memory access. The benchmark case used is an empty box with a default size of <inline-formula><mml:math id="mm13"><mml:semantics><mml:msup><mml:mn>256</mml:mn><mml:mn>3</mml:mn></mml:msup></mml:semantics></mml:math></inline-formula>, with no extensions enabled except bounce-back boundaries, following&#xA0;[<xref ref-type="bibr" rid="B13-computation-10-00092">13</xref>]. For devices where not enough memory was available, the box size was reduced, and for the AMD Radeon VII, the box size was increased to <inline-formula><mml:math id="mm14"><mml:semantics><mml:msup><mml:mn>464</mml:mn><mml:mn>3</mml:mn></mml:msup></mml:semantics></mml:math></inline-formula>.</p>
+      </sec>
+    </sec>
+    <sec id="sec5-computation-10-00092">
+      <title>5. Esoteric Pull for Free Surface LBM on GPUs</title>
+      <p>Here, to further underline the substantial perks of the added simplicity of Esoteric Pull over Esoteric Twist, the modification of existing Free Surface LBM (FSLBM) code from One-Step Pull to Esoteric Pull in-place streaming is briefly discussed using the example of <italic>FluidX3D</italic>&#xA0;[<xref ref-type="bibr" rid="B14-computation-10-00092">14</xref>].</p>
+      <p>Although the One-Step-Pull scheme makes an FSLBM implementation the simplest and most efficient, it can easily be modified to the Esoteric Pull in-place streaming scheme. FSLBM on a GPU requires three more kernels in addition to the stream_collide kernel. To distinguish between node types, three flag bits are required and can be represented as follows: fluid (001, F), interface (010, I), gas (100, G), interface&#x2192;fluid (011, IF), interface&#x2192;gas (110), and gas&#x2192;interface (111, GI). These kernels are first introduced for the implementation of One-Step Pull:</p>
+      <list list-type="bullet">
+        <list-item>
+          <p>stream_collide: Immediately return for G nodes. Stream in DDFs from neighbors, but for F and I nodes also load outgoing DDFs from the center node to compute the mass transfer for Volume-of-Fluid&#xA0;[<xref ref-type="bibr" rid="B67-computation-10-00092">67</xref>]. Apply excess mass for F or I nodes by summing it from all neighboring F and I nodes. Compute the local surface curvature with PLIC&#xA0;[<xref ref-type="bibr" rid="B26-computation-10-00092">26</xref>] and reconstruct DDFs from neighboring G nodes. After collision, compare mass <italic>m</italic> and post-collision density <inline-formula><mml:math id="mm15"><mml:semantics><mml:mi>&#x3C1;</mml:mi></mml:semantics></mml:math></inline-formula>; along with neighboring flags, mark whether the center node should remain I or change to IF or IG. Store post-collision DDFs at the local node.</p>
+        </list-item>
+        <list-item>
+          <p>surface_1: Prevent neighbors of IF nodes from becoming/being G nodes; update flags of such neighbors to either I (from IF) or GI (from G).</p>
+        </list-item>
+        <list-item>
+          <p>surface_2: For GI nodes, reconstruct and store DDFs based on the average density and velocity of all neighboring F, I, or IF nodes. For IG nodes, turn all neighboring F or IF nodes to I.</p>
+        </list-item>
+        <list-item>
+          <p>surface_3: Change IF nodes to F, IG nodes to G, and GI nodes to I. Compute excess mass for each case separately as well as for F, I, and G nodes, then divide the local excess mass by the number of neighboring F, I, IF, and GI nodes and store the excess mass on the local node.</p>
+        </list-item>
+      </list>
+      <p>After modifying the streaming scheme from One-Step Pull to Esoteric Pull, a fifth kernel must be added preceding the stream_collide kernel because in the stream_collide kernel, the outgoing DDFs cannot be loaded as neighboring nodes may overwrite them in memory within the same time step (race condition):<list list-type="bullet"><list-item><p>surface_0: Immediately return for G nodes. Stream in DDFs as in <xref ref-type="fig" rid="computation-10-00092-f005">Figure 5</xref> (incoming DDFs), but also load outgoing DDFs in opposite directions to compute the mass transfer for Volume-of-Fluid. For I nodes, compute the local surface curvature with PLIC and reconstruct DDFs for neighboring G nodes; store these reconstructed DDFs in the locations at the neighbors from which they will be streamed in in the following stream_collide kernel. Apply excess mass for F or I nodes by summing from all neighboring F and I nodes.</p></list-item><list-item><p>stream_collide: Immediately return for G nodes. Stream in DDFs as in <xref ref-type="fig" rid="computation-10-00092-f005">Figure 5</xref> and execute collision. For I nodes, compare mass <italic>m</italic> and post-collision density <inline-formula><mml:math id="mm16"><mml:semantics><mml:mi>&#x3C1;</mml:mi></mml:semantics></mml:math></inline-formula>; along with neighboring flags, mark whether the center node should remain I or change to IF or IG. Stream out the DDFs as in <xref ref-type="fig" rid="computation-10-00092-f005">Figure 5</xref>.</p></list-item><list-item><p>surface_1, surface_2, surface_3: unchanged</p></list-item></list></p>
+      <p>In the surface_0 kernel, additional streaming in inverted directions is necessary to load outgoing DDFs and store reconstructed DDFs for neighboring G nodes. Having to perform manual index calculations here, as with Esoteric Twist, would vastly elongate and over-complicate the code and reduce maintainability. With the Esoteric Pull/Push variants, only two simple loops of four lines of code each are required. The full FSLBM OpenCL C implementation with Esoteric Pull is provided in the <xref ref-type="app" rid="app3-computation-10-00092">Appendix B</xref> in <xref ref-type="boxed-text" rid="computation-10-00092-box0A7">Listing A7</xref>.</p>
+      <p>The change to the Esoteric Pull in-place streaming algorithm reduces the memory demand for FSLBM from 181 to 105 Bytes/node while only decreasing performance by approximately <inline-formula><mml:math id="mm17"><mml:semantics><mml:mrow><mml:mn>20</mml:mn><mml:mo>%</mml:mo></mml:mrow></mml:semantics></mml:math></inline-formula> due to the duplicate loading of incoming DDFs and having to store reconstructed DDFs for G nodes. When combined with FP32/16-bit mixed precision&#xA0;[<xref ref-type="bibr" rid="B13-computation-10-00092">13</xref>], the memory demand is further reduced to 67 Bytes/node or about <inline-formula><mml:math id="mm18"><mml:semantics><mml:mfrac><mml:mn>1</mml:mn><mml:mn>3</mml:mn></mml:mfrac></mml:semantics></mml:math></inline-formula> of vanilla FSLBM, comparable to or even less than the memory requirements of other (Navier&#x2013;)Stokes solvers&#xA0;[<xref ref-type="bibr" rid="B68-computation-10-00092">68</xref>,<xref ref-type="bibr" rid="B69-computation-10-00092">69</xref>,<xref ref-type="bibr" rid="B70-computation-10-00092">70</xref>,<xref ref-type="bibr" rid="B71-computation-10-00092">71</xref>].</p>
+      <p>This, in turn, enables colossal lattice resolutions as illustrated by an example in <xref ref-type="fig" rid="computation-10-00092-f008">Figure 8</xref>: a <inline-formula><mml:math id="mm19"><mml:semantics><mml:mrow><mml:mn>7</mml:mn><mml:mspace width="0.166667em"/><mml:mi>mm</mml:mi></mml:mrow></mml:semantics></mml:math></inline-formula> (188 lattice point) diameter raindrop, <inline-formula><mml:math id="mm20"><mml:semantics><mml:mrow><mml:mn>1.5</mml:mn><mml:mspace width="0.166667em"/><mml:mi>ms</mml:mi></mml:mrow></mml:semantics></mml:math></inline-formula> (7700 time steps) after impacting a deep pool at <inline-formula><mml:math id="mm21"><mml:semantics><mml:mrow><mml:mn>9.55</mml:mn><mml:mspace width="0.166667em"/><mml:mfrac><mml:mi mathvariant="normal">m</mml:mi><mml:mi mathvariant="normal">s</mml:mi></mml:mfrac></mml:mrow></mml:semantics></mml:math></inline-formula>&#xA0;[<xref ref-type="bibr" rid="B24-computation-10-00092">24</xref>] and <inline-formula><mml:math id="mm22"><mml:semantics><mml:msup><mml:mn>20</mml:mn><mml:mo>&#x2218;</mml:mo></mml:msup></mml:semantics></mml:math></inline-formula> inclination, was simulated with the <italic>FluidX3D</italic> implementation with FP32/FP16C mixed precision&#xA0;[<xref ref-type="bibr" rid="B13-computation-10-00092">13</xref>]. Lattice resolution is <inline-formula><mml:math id="mm23"><mml:semantics><mml:mrow><mml:mn>940</mml:mn><mml:mo>&#xD7;</mml:mo><mml:mn>940</mml:mn><mml:mo>&#xD7;</mml:mo><mml:mn>800</mml:mn></mml:mrow></mml:semantics></mml:math></inline-formula> or 707 million lattice points. The simulation was conducted on an Nvidia Quadro RTX 8000 GPU with <inline-formula><mml:math id="mm24"><mml:semantics><mml:mrow><mml:mn>48</mml:mn><mml:mspace width="0.166667em"/><mml:mi>GB</mml:mi></mml:mrow></mml:semantics></mml:math></inline-formula> video memory and took 27 min, including the rendering of the image. The code for this setup is provided in <xref ref-type="app" rid="app4-computation-10-00092">Appendix C</xref> in <xref ref-type="boxed-text" rid="computation-10-00092-box0A8">Listing A8</xref>.</p>
+    </sec>
+    <sec sec-type="conclusions" id="sec6-computation-10-00092">
+      <title>6. Conclusions</title>
+      <p>In-place streaming is essential for any LBM GPU implementation as it significantly reduces memory demand and increases the maximum lattice resolution. However, existing thread-safe solutions for GPUs, such as AA-Pattern and Esoteric Twist, never gained widespread adoption due to the difficulty of implementation. The new Esoteric Pull and Esoteric Push schemes presented in this work should change that. They build upon the same idea as the Esoteric Twist scheme&#x2014;streaming half of the DDFs at the end of one stream_collide kernel and the other half at the beginning of the next&#x2014;but greatly simplify the implementation because of their trivial index calculations, even allowing for automatic code generation. For existing GPU implementations of the common One-Step-Pull scheme, the switch to Esoteric Pull requires only moderate modifications to the code, even if several extensions are already implemented, as demonstrated herein with Free Surface LBM. In contrast, the implementation of Esoteric Twist would be much more difficult and error-prone in such a case, as the index calculation has to be implemented twice in different variations for regular LBM streaming and for FSLBM mass exchange.</p>
+      <p>The Esoteric Pull and Esoteric Push schemes share the same performance advantage as Esoteric Twist over AA-Pattern: slightly reduced bandwidth due to implicit bounce-back. Moreover, compared to Esoteric Twist, memory coalescence is slightly improved on the otherwise shifted diagonal directions. This allows the Esoteric Pull/Push schemes, with only one DDF buffer, to provide GPU performance on par with the One-Step-Pull scheme with double DDF buffers, despite requiring less efficient misaligned writes. In addition, on integrated GPUs and CPUs, performance is significantly increased.</p>
+    </sec>
+  </body>
+  <back>
+    <app-group>
+      <app id="app1-computation-10-00092">
+        <title>Supplementary Materials</title>
+        <p>The following supporting information can be downloaded at: <uri>https://www.mdpi.com/article/10.3390/computation10060092/s1</uri>, Video S1: Esoteric Pull in-place streaming with FP16C memory compression.</p>
+        <supplementary-material xmlns:xlink="http://www.w3.org/1999/xlink" id="computation-10-00092-s001" xlink:href="computation-10-00092-s001.zip"/>
+      </app>
+    </app-group>
+    <notes>
+      <title>Data Availability Statement</title>
+      <p>All data are archived and available upon request. All code beyond what is provided in the listings is archived and available upon reasonable request.</p>
+    </notes>
+    <ack>
+      <title>Acknowledgments</title>
+      <p>I acknowledge support through the computational resources provided by BZHPC, LRZ and JSC. I acknowledge the NVIDIA Corporation for donating a Titan Xp GPU and an A100 40GB GPU for my research. I acknowledge Stephan Gekle for motivating me to write this paper.</p>
+    </ack>
+    <notes notes-type="COI-statement">
+      <title>Conflicts of Interest</title>
+      <p>The author declares no conflict of interest.</p>
+    </notes>
+    <glossary>
+      <title>Abbreviations</title>
+      <p>The following abbreviations are used in this manuscript:
+      <array><tbody><tr><td align="left" valign="middle">LBM</td><td align="left" valign="middle">lattice Boltzmann method</td></tr><tr><td align="left" valign="middle">DDF</td><td align="left" valign="middle">density distribution function</td></tr><tr><td align="left" valign="middle">GPU</td><td align="left" valign="middle">graphics processing unit</td></tr><tr><td align="left" valign="middle">CPU</td><td align="left" valign="middle">central processing unit</td></tr><tr><td align="left" valign="middle">SRT</td><td align="left" valign="middle">single-relaxation-time</td></tr><tr><td align="left" valign="middle">OSP</td><td align="left" valign="middle">One-Step Pull/Push</td></tr><tr><td align="left" valign="middle">AA</td><td align="left" valign="middle">AA-Pattern</td></tr><tr><td align="left" valign="middle">ET</td><td align="left" valign="middle">Esoteric Twist</td></tr><tr><td align="left" valign="middle">EP</td><td align="left" valign="middle">Esoteric Pull/Push</td></tr></tbody></array></p>
+    </glossary>
+    <app-group>
+      <app id="app2-computation-10-00092">
+        <title>Appendix A. OpenCL C Implementation of the Different Streaming Schemes</title>
+        <sec id="secAdot1-computation-10-00092">
+          <title>Appendix A.1. One-Step Pull</title>
+          <boxed-text id="computation-10-00092-box0A1" content-type="border:none">
+            <label>Listing A1</label>
+            <caption>
+              <title>One-Step-Pull implementation in OpenCL C.</title>
+            </caption>
+            <p>
+              <inline-graphic xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="computation-10-00092-i001.tif"/>
+            </p>
+          </boxed-text>
+        </sec>
+        <sec id="secAdot2-computation-10-00092">
+          <title>Appendix A.2. One-Step Push</title>
+          <boxed-text id="computation-10-00092-box0A2" content-type="border:none">
+            <label>Listing A2</label>
+            <caption>
+              <title>One-Step-Push implementation in OpenCL C.</title>
+            </caption>
+            <p>
+              <inline-graphic xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="computation-10-00092-i002a.tif"/>
+            </p>
+            <p>
+              <inline-graphic xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="computation-10-00092-i002b.tif"/>
+            </p>
+          </boxed-text>
+        </sec>
+        <sec id="secAdot3-computation-10-00092">
+          <title>Appendix A.3. AA-Pattern</title>
+          <boxed-text id="computation-10-00092-box0A3" content-type="border:none">
+            <label>Listing A3</label>
+            <caption>
+              <title>AA-Pattern implementation in OpenCL C.</title>
+            </caption>
+            <p>
+              <inline-graphic xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="computation-10-00092-i003.tif"/>
+            </p>
+          </boxed-text>
+        </sec>
+        <sec id="secAdot4-computation-10-00092">
+          <title>Appendix A.4. Esoteric Twist</title>
+          <boxed-text id="computation-10-00092-box0A4" content-type="border:none">
+            <label>Listing A4</label>
+            <caption>
+              <title>Esoteric-Twist implementation in OpenCL C.</title>
+            </caption>
+            <p>
+              <inline-graphic xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="computation-10-00092-i004a.tif"/>
+            </p>
+            <p>
+              <inline-graphic xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="computation-10-00092-i004b.tif"/>
+            </p>
+            <p>
+              <inline-graphic xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="computation-10-00092-i004c.tif"/>
+            </p>
+          </boxed-text>
+        </sec>
+        <sec id="secAdot5-computation-10-00092">
+          <title>Appendix A.5. Esoteric Pull</title>
+          <boxed-text id="computation-10-00092-box0A5" content-type="border:none">
+            <label>Listing A5</label>
+            <caption>
+              <title>Esoteric Pull implementation in OpenCL C.</title>
+            </caption>
+            <p>
+              <inline-graphic xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="computation-10-00092-i005.tif"/>
+            </p>
+          </boxed-text>
+        </sec>
+        <sec id="secAdot6-computation-10-00092">
+          <title>Appendix A.6. Esoteric Push</title>
+          <boxed-text id="computation-10-00092-box0A6" content-type="border:none">
+            <label>Listing A6</label>
+            <caption>
+              <title>Esoteric Push implementation in OpenCL C.</title>
+            </caption>
+            <p>
+              <inline-graphic xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="computation-10-00092-i006.tif"/>
+            </p>
+          </boxed-text>
+        </sec>
+      </app>
+      <app id="app3-computation-10-00092">
+        <title>Appendix B. OpenCL C Implementation of the FSLBM with Esoteric Pull</title>
+        <boxed-text id="computation-10-00092-box0A7" content-type="border:none">
+          <label>Listing A7</label>
+          <caption>
+            <title>OpenCL C FSLBM implementation as in <italic>FluidX3D</italic> [<xref ref-type="bibr" rid="B13-computation-10-00092">13</xref>,<xref ref-type="bibr" rid="B14-computation-10-00092">14</xref>,<xref ref-type="bibr" rid="B24-computation-10-00092">24</xref>].</title>
+          </caption>
+          <p>
+            <inline-graphic xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="computation-10-00092-i007a.tif"/>
+          </p>
+          <p>
+            <inline-graphic xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="computation-10-00092-i007b.tif"/>
+          </p>
+          <p>
+            <inline-graphic xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="computation-10-00092-i007c.tif"/>
+          </p>
+          <p>
+            <inline-graphic xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="computation-10-00092-i007d.tif"/>
+          </p>
+          <p>
+            <inline-graphic xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="computation-10-00092-i007e.tif"/>
+          </p>
+          <p>
+            <inline-graphic xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="computation-10-00092-i007f.tif"/>
+          </p>
+          <p>
+            <inline-graphic xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="computation-10-00092-i007g.tif"/>
+          </p>
+        </boxed-text>
+      </app>
+      <app id="app4-computation-10-00092">
+        <title>Appendix C. Setup Script for the Raindrop Impact Simulation</title>
+        <boxed-text id="computation-10-00092-box0A8" content-type="border:none">
+          <label>Listing A8</label>
+          <caption>
+            <title>C++ setup script for the raindrop impact simulation in <xref ref-type="fig" rid="computation-10-00092-f008">Figure 8</xref>.</title>
+          </caption>
+          <p>
+            <inline-graphic xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="computation-10-00092-i008a.tif"/>
+          </p>
+          <p>
+            <inline-graphic xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="computation-10-00092-i008b.tif"/>
+          </p>
+        </boxed-text>
+      </app>
+    </app-group>
+    <ref-list>
+      <title>References</title>
+      <ref id="B1-computation-10-00092">
+        <label>1.</label>
+        <element-citation publication-type="book">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Kr&#xFC;ger</surname>
+              <given-names>T.</given-names>
+            </name>
+            <name>
+              <surname>Kusumaatmaja</surname>
+              <given-names>H.</given-names>
+            </name>
+            <name>
+              <surname>Kuzmin</surname>
+              <given-names>A.</given-names>
+            </name>
+            <name>
+              <surname>Shardt</surname>
+              <given-names>O.</given-names>
+            </name>
+            <name>
+              <surname>Silva</surname>
+              <given-names>G.</given-names>
+            </name>
+            <name>
+              <surname>Viggen</surname>
+              <given-names>E.M.</given-names>
+            </name>
+          </person-group>
+          <source>The Lattice Boltzmann Method</source>
+          <publisher-name>Springer International Publishing</publisher-name>
+          <publisher-loc>Cham, Switzerland</publisher-loc>
+          <year>2017</year>
+          <volume>Volume 10</volume>
+          <fpage>978</fpage>
+          <lpage>983</lpage>
+        </element-citation>
+      </ref>
+      <ref id="B2-computation-10-00092">
+        <label>2.</label>
+        <element-citation publication-type="journal">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Geier</surname>
+              <given-names>M.</given-names>
+            </name>
+            <name>
+              <surname>Sch&#xF6;nherr</surname>
+              <given-names>M.</given-names>
+            </name>
+          </person-group>
+          <article-title>Esoteric twist: An efficient in-place streaming algorithmus for the lattice Boltzmann method on massively parallel hardware</article-title>
+          <source>Computation</source>
+          <year>2017</year>
+          <volume>5</volume>
+          <elocation-id>19</elocation-id>
+          <pub-id pub-id-type="doi">10.3390/computation5020019</pub-id>
+        </element-citation>
+      </ref>
+      <ref id="B3-computation-10-00092">
+        <label>3.</label>
+        <element-citation publication-type="confproc">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Bailey</surname>
+              <given-names>P.</given-names>
+            </name>
+            <name>
+              <surname>Myre</surname>
+              <given-names>J.</given-names>
+            </name>
+            <name>
+              <surname>Walsh</surname>
+              <given-names>S.D.</given-names>
+            </name>
+            <name>
+              <surname>Lilja</surname>
+              <given-names>D.J.</given-names>
+            </name>
+            <name>
+              <surname>Saar</surname>
+              <given-names>M.O.</given-names>
+            </name>
+          </person-group>
+          <article-title>Accelerating lattice Boltzmann fluid flow simulations using graphics processors</article-title>
+          <source>Proceedings of the 2009 International Conference on Parallel Processing</source>
+          <conf-loc>Vienna, Austria</conf-loc>
+          <conf-date>22&#x2013;25 September 2009</conf-date>
+          <fpage>550</fpage>
+          <lpage>557</lpage>
+        </element-citation>
+      </ref>
+      <ref id="B4-computation-10-00092">
+        <label>4.</label>
+        <element-citation publication-type="journal">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Mohrhard</surname>
+              <given-names>M.</given-names>
+            </name>
+            <name>
+              <surname>Th&#xE4;ter</surname>
+              <given-names>G.</given-names>
+            </name>
+            <name>
+              <surname>Bludau</surname>
+              <given-names>J.</given-names>
+            </name>
+            <name>
+              <surname>Horvat</surname>
+              <given-names>B.</given-names>
+            </name>
+            <name>
+              <surname>Krause</surname>
+              <given-names>M.</given-names>
+            </name>
+          </person-group>
+          <article-title>An Auto-Vecotorization Friendly Parallel Lattice Boltzmann Streaming Scheme for Direct Addressing</article-title>
+          <source>Comput. Fluids</source>
+          <year>2019</year>
+          <volume>181</volume>
+          <fpage>1</fpage>
+          <lpage>7</lpage>
+          <pub-id pub-id-type="doi">10.1016/j.compfluid.2019.01.001</pub-id>
+        </element-citation>
+      </ref>
+      <ref id="B5-computation-10-00092">
+        <label>5.</label>
+        <element-citation publication-type="journal">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Kummerl&#xE4;nder</surname>
+              <given-names>A.</given-names>
+            </name>
+            <name>
+              <surname>Dorn</surname>
+              <given-names>M.</given-names>
+            </name>
+            <name>
+              <surname>Frank</surname>
+              <given-names>M.</given-names>
+            </name>
+            <name>
+              <surname>Krause</surname>
+              <given-names>M.J.</given-names>
+            </name>
+          </person-group>
+          <article-title>Implicit Propagation of Directly Addressed Grids in Lattice Boltzmann Methods</article-title>
+          <source>Comput. Fluids</source>
+          <year>2021</year>
+          <pub-id pub-id-type="doi">10.13140/RG.2.2.35085.87523</pub-id>
+        </element-citation>
+      </ref>
+      <ref id="B6-computation-10-00092">
+        <label>6.</label>
+        <element-citation publication-type="journal">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Schreiber</surname>
+              <given-names>M.</given-names>
+            </name>
+            <name>
+              <surname>Neumann</surname>
+              <given-names>P.</given-names>
+            </name>
+            <name>
+              <surname>Zimmer</surname>
+              <given-names>S.</given-names>
+            </name>
+            <name>
+              <surname>Bungartz</surname>
+              <given-names>H.J.</given-names>
+            </name>
+          </person-group>
+          <article-title>Free-surface lattice-Boltzmann simulation on many-core architectures</article-title>
+          <source>Procedia Comput. Sci.</source>
+          <year>2011</year>
+          <volume>4</volume>
+          <fpage>984</fpage>
+          <lpage>993</lpage>
+          <pub-id pub-id-type="doi">10.1016/j.procs.2011.04.104</pub-id>
+        </element-citation>
+      </ref>
+      <ref id="B7-computation-10-00092">
+        <label>7.</label>
+        <element-citation publication-type="journal">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Riesinger</surname>
+              <given-names>C.</given-names>
+            </name>
+            <name>
+              <surname>Bakhtiari</surname>
+              <given-names>A.</given-names>
+            </name>
+            <name>
+              <surname>Schreiber</surname>
+              <given-names>M.</given-names>
+            </name>
+            <name>
+              <surname>Neumann</surname>
+              <given-names>P.</given-names>
+            </name>
+            <name>
+              <surname>Bungartz</surname>
+              <given-names>H.J.</given-names>
+            </name>
+          </person-group>
+          <article-title>A holistic scalable implementation approach of the lattice Boltzmann method for CPU/GPU heterogeneous clusters</article-title>
+          <source>Computation</source>
+          <year>2017</year>
+          <volume>5</volume>
+          <elocation-id>48</elocation-id>
+          <pub-id pub-id-type="doi">10.3390/computation5040048</pub-id>
+        </element-citation>
+      </ref>
+      <ref id="B8-computation-10-00092">
+        <label>8.</label>
+        <element-citation publication-type="book">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Aksnes</surname>
+              <given-names>E.O.</given-names>
+            </name>
+            <name>
+              <surname>Elster</surname>
+              <given-names>A.C.</given-names>
+            </name>
+          </person-group>
+          <article-title>Porous rock simulations and lattice Boltzmann on GPUs</article-title>
+          <source>Parallel Computing: From Multicores and GPU&#x2019;s to Petascale</source>
+          <publisher-name>IOS Press</publisher-name>
+          <publisher-loc>Amsterdam, The Netherlands</publisher-loc>
+          <year>2010</year>
+          <fpage>536</fpage>
+          <lpage>545</lpage>
+        </element-citation>
+      </ref>
+      <ref id="B9-computation-10-00092">
+        <label>9.</label>
+        <element-citation publication-type="journal">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Holzer</surname>
+              <given-names>M.</given-names>
+            </name>
+            <name>
+              <surname>Bauer</surname>
+              <given-names>M.</given-names>
+            </name>
+            <name>
+              <surname>R&#xFC;de</surname>
+              <given-names>U.</given-names>
+            </name>
+          </person-group>
+          <article-title>Highly Efficient Lattice-Boltzmann Multiphase Simulations of Immiscible Fluids at High-Density Ratios on CPUs and GPUs through Code Generation</article-title>
+          <source>arXiv</source>
+          <year>2020</year>
+          <pub-id pub-id-type="arxiv">2012.06144</pub-id>
+          <pub-id pub-id-type="doi">10.1177/10943420211016525</pub-id>
+        </element-citation>
+      </ref>
+      <ref id="B10-computation-10-00092">
+        <label>10.</label>
+        <element-citation publication-type="confproc">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Duchateau</surname>
+              <given-names>J.</given-names>
+            </name>
+            <name>
+              <surname>Rousselle</surname>
+              <given-names>F.</given-names>
+            </name>
+            <name>
+              <surname>Maquignon</surname>
+              <given-names>N.</given-names>
+            </name>
+            <name>
+              <surname>Roussel</surname>
+              <given-names>G.</given-names>
+            </name>
+            <name>
+              <surname>Renaud</surname>
+              <given-names>C.</given-names>
+            </name>
+          </person-group>
+          <article-title>Accelerating physical simulations from a multicomponent Lattice Boltzmann method on a single-node multi-GPU architecture</article-title>
+          <source>Proceedings of the 2015 10th International Conference on P2P, Parallel, Grid, Cloud and Internet Computing (3PGCIC)</source>
+          <conf-loc>Krakow, Poland</conf-loc>
+          <conf-date>4&#x2013;6 November 2015</conf-date>
+          <fpage>315</fpage>
+          <lpage>322</lpage>
+        </element-citation>
+      </ref>
+      <ref id="B11-computation-10-00092">
+        <label>11.</label>
+        <element-citation publication-type="journal">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Li</surname>
+              <given-names>W.</given-names>
+            </name>
+            <name>
+              <surname>Ma</surname>
+              <given-names>Y.</given-names>
+            </name>
+            <name>
+              <surname>Liu</surname>
+              <given-names>X.</given-names>
+            </name>
+            <name>
+              <surname>Desbrun</surname>
+              <given-names>M.</given-names>
+            </name>
+          </person-group>
+          <article-title>Efficient Kinetic Simulation of Two-Phase Flows</article-title>
+          <source>ACM Trans. Graph.</source>
+          <year>2022</year>
+          <volume>41</volume>
+          <fpage>114</fpage>
+        </element-citation>
+      </ref>
+      <ref id="B12-computation-10-00092">
+        <label>12.</label>
+        <element-citation publication-type="journal">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Walsh</surname>
+              <given-names>S.D.</given-names>
+            </name>
+            <name>
+              <surname>Saar</surname>
+              <given-names>M.O.</given-names>
+            </name>
+            <name>
+              <surname>Bailey</surname>
+              <given-names>P.</given-names>
+            </name>
+            <name>
+              <surname>Lilja</surname>
+              <given-names>D.J.</given-names>
+            </name>
+          </person-group>
+          <article-title>Accelerating geoscience and engineering system simulations on graphics hardware</article-title>
+          <source>Comput. Geosci.</source>
+          <year>2009</year>
+          <volume>35</volume>
+          <fpage>2353</fpage>
+          <lpage>2364</lpage>
+          <pub-id pub-id-type="doi">10.1016/j.cageo.2009.05.001</pub-id>
+        </element-citation>
+      </ref>
+      <ref id="B13-computation-10-00092">
+        <label>13.</label>
+        <element-citation publication-type="journal">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Lehmann</surname>
+              <given-names>M.</given-names>
+            </name>
+            <name>
+              <surname>Krause</surname>
+              <given-names>M.J.</given-names>
+            </name>
+            <name>
+              <surname>Amati</surname>
+              <given-names>G.</given-names>
+            </name>
+            <name>
+              <surname>Sega</surname>
+              <given-names>M.</given-names>
+            </name>
+            <name>
+              <surname>Harting</surname>
+              <given-names>J.</given-names>
+            </name>
+            <name>
+              <surname>Gekle</surname>
+              <given-names>S.</given-names>
+            </name>
+          </person-group>
+          <article-title>On the accuracy and performance of the lattice Boltzmann method with 64-bit, 32-bit and novel 16-bit number formats</article-title>
+          <source>arXiv</source>
+          <year>2021</year>
+          <pub-id pub-id-type="arxiv">2112.08926</pub-id>
+        </element-citation>
+      </ref>
+      <ref id="B14-computation-10-00092">
+        <label>14.</label>
+        <element-citation publication-type="thesis">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Lehmann</surname>
+              <given-names>M.</given-names>
+            </name>
+          </person-group>
+          <article-title>High Performance Free Surface LBM on GPUs</article-title>
+          <source>Master&#x2019;s Thesis</source>
+          <publisher-name>University of Bayreuth</publisher-name>
+          <publisher-loc>Bayreuth, Germany</publisher-loc>
+          <year>2019</year>
+        </element-citation>
+      </ref>
+      <ref id="B15-computation-10-00092">
+        <label>15.</label>
+        <element-citation publication-type="journal">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Tak&#xE1;&#x10D;</surname>
+              <given-names>M.</given-names>
+            </name>
+            <name>
+              <surname>Petr&#xE1;&#x161;</surname>
+              <given-names>I.</given-names>
+            </name>
+          </person-group>
+          <article-title>Cross-Platform GPU-Based Implementation of Lattice Boltzmann Method Solver Using ArrayFire Library</article-title>
+          <source>Mathematics</source>
+          <year>2021</year>
+          <volume>9</volume>
+          <elocation-id>1793</elocation-id>
+          <pub-id pub-id-type="doi">10.3390/math9151793</pub-id>
+        </element-citation>
+      </ref>
+      <ref id="B16-computation-10-00092">
+        <label>16.</label>
+        <element-citation publication-type="journal">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Mawson</surname>
+              <given-names>M.J.</given-names>
+            </name>
+            <name>
+              <surname>Revell</surname>
+              <given-names>A.J.</given-names>
+            </name>
+          </person-group>
+          <article-title>Memory transfer optimization for a lattice Boltzmann solver on Kepler architecture nVidia GPUs</article-title>
+          <source>Comput. Phys. Commun.</source>
+          <year>2014</year>
+          <volume>185</volume>
+          <fpage>2566</fpage>
+          <lpage>2574</lpage>
+          <pub-id pub-id-type="doi">10.1016/j.cpc.2014.06.003</pub-id>
+        </element-citation>
+      </ref>
+      <ref id="B17-computation-10-00092">
+        <label>17.</label>
+        <element-citation publication-type="journal">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Delbosc</surname>
+              <given-names>N.</given-names>
+            </name>
+            <name>
+              <surname>Summers</surname>
+              <given-names>J.L.</given-names>
+            </name>
+            <name>
+              <surname>Khan</surname>
+              <given-names>A.</given-names>
+            </name>
+            <name>
+              <surname>Kapur</surname>
+              <given-names>N.</given-names>
+            </name>
+            <name>
+              <surname>Noakes</surname>
+              <given-names>C.J.</given-names>
+            </name>
+          </person-group>
+          <article-title>Optimized implementation of the Lattice Boltzmann Method on a graphics processing unit towards real-time fluid simulation</article-title>
+          <source>Comput. Math. Appl.</source>
+          <year>2014</year>
+          <volume>67</volume>
+          <fpage>462</fpage>
+          <lpage>475</lpage>
+          <pub-id pub-id-type="doi">10.1016/j.camwa.2013.10.002</pub-id>
+        </element-citation>
+      </ref>
+      <ref id="B18-computation-10-00092">
+        <label>18.</label>
+        <element-citation publication-type="journal">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Tran</surname>
+              <given-names>N.P.</given-names>
+            </name>
+            <name>
+              <surname>Lee</surname>
+              <given-names>M.</given-names>
+            </name>
+            <name>
+              <surname>Hong</surname>
+              <given-names>S.</given-names>
+            </name>
+          </person-group>
+          <article-title>Performance optimization of 3D lattice Boltzmann flow solver on a GPU</article-title>
+          <source>Sci. Program.</source>
+          <year>2017</year>
+          <fpage>1205892</fpage>
+          <pub-id pub-id-type="doi">10.1155/2017/1205892</pub-id>
+        </element-citation>
+      </ref>
+      <ref id="B19-computation-10-00092">
+        <label>19.</label>
+        <element-citation publication-type="journal">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Obrecht</surname>
+              <given-names>C.</given-names>
+            </name>
+            <name>
+              <surname>Kuznik</surname>
+              <given-names>F.</given-names>
+            </name>
+            <name>
+              <surname>Tourancheau</surname>
+              <given-names>B.</given-names>
+            </name>
+            <name>
+              <surname>Roux</surname>
+              <given-names>J.J.</given-names>
+            </name>
+          </person-group>
+          <article-title>Multi-GPU implementation of the lattice Boltzmann method</article-title>
+          <source>Comput. Math. Appl.</source>
+          <year>2013</year>
+          <volume>65</volume>
+          <fpage>252</fpage>
+          <lpage>261</lpage>
+          <pub-id pub-id-type="doi">10.1016/j.camwa.2011.02.020</pub-id>
+        </element-citation>
+      </ref>
+      <ref id="B20-computation-10-00092">
+        <label>20.</label>
+        <element-citation publication-type="journal">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Obrecht</surname>
+              <given-names>C.</given-names>
+            </name>
+            <name>
+              <surname>Kuznik</surname>
+              <given-names>F.</given-names>
+            </name>
+            <name>
+              <surname>Tourancheau</surname>
+              <given-names>B.</given-names>
+            </name>
+            <name>
+              <surname>Roux</surname>
+              <given-names>J.J.</given-names>
+            </name>
+          </person-group>
+          <article-title>A new approach to the lattice Boltzmann method for graphics processing units</article-title>
+          <source>Comput. Math. Appl.</source>
+          <year>2011</year>
+          <volume>61</volume>
+          <fpage>3628</fpage>
+          <lpage>3638</lpage>
+          <pub-id pub-id-type="doi">10.1016/j.camwa.2010.01.054</pub-id>
+        </element-citation>
+      </ref>
+      <ref id="B21-computation-10-00092">
+        <label>21.</label>
+        <element-citation publication-type="journal">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Feichtinger</surname>
+              <given-names>C.</given-names>
+            </name>
+            <name>
+              <surname>Habich</surname>
+              <given-names>J.</given-names>
+            </name>
+            <name>
+              <surname>K&#xF6;stler</surname>
+              <given-names>H.</given-names>
+            </name>
+            <name>
+              <surname>Hager</surname>
+              <given-names>G.</given-names>
+            </name>
+            <name>
+              <surname>R&#xFC;de</surname>
+              <given-names>U.</given-names>
+            </name>
+            <name>
+              <surname>Wellein</surname>
+              <given-names>G.</given-names>
+            </name>
+          </person-group>
+          <article-title>A flexible Patch-based lattice Boltzmann parallelization approach for heterogeneous GPU&#x2013;CPU clusters</article-title>
+          <source>Parallel Comput.</source>
+          <year>2011</year>
+          <volume>37</volume>
+          <fpage>536</fpage>
+          <lpage>549</lpage>
+          <pub-id pub-id-type="doi">10.1016/j.parco.2011.03.005</pub-id>
+        </element-citation>
+      </ref>
+      <ref id="B22-computation-10-00092">
+        <label>22.</label>
+        <element-citation publication-type="journal">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Calore</surname>
+              <given-names>E.</given-names>
+            </name>
+            <name>
+              <surname>Gabbana</surname>
+              <given-names>A.</given-names>
+            </name>
+            <name>
+              <surname>Kraus</surname>
+              <given-names>J.</given-names>
+            </name>
+            <name>
+              <surname>Pellegrini</surname>
+              <given-names>E.</given-names>
+            </name>
+            <name>
+              <surname>Schifano</surname>
+              <given-names>S.F.</given-names>
+            </name>
+            <name>
+              <surname>Tripiccione</surname>
+              <given-names>R.</given-names>
+            </name>
+          </person-group>
+          <article-title>Massively parallel lattice&#x2013;Boltzmann codes on large GPU clusters</article-title>
+          <source>Parallel Comput.</source>
+          <year>2016</year>
+          <volume>58</volume>
+          <fpage>1</fpage>
+          <lpage>24</lpage>
+          <pub-id pub-id-type="doi">10.1016/j.parco.2016.08.005</pub-id>
+        </element-citation>
+      </ref>
+      <ref id="B23-computation-10-00092">
+        <label>23.</label>
+        <element-citation publication-type="confproc">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Obrecht</surname>
+              <given-names>C.</given-names>
+            </name>
+            <name>
+              <surname>Kuznik</surname>
+              <given-names>F.</given-names>
+            </name>
+            <name>
+              <surname>Tourancheau</surname>
+              <given-names>B.</given-names>
+            </name>
+            <name>
+              <surname>Roux</surname>
+              <given-names>J.J.</given-names>
+            </name>
+          </person-group>
+          <article-title>Global memory access modelling for efficient implementation of the lattice Boltzmann method on graphics processing units</article-title>
+          <source>Proceedings of the International Conference on High Performance Computing for Computational Science</source>
+          <conf-loc>Berkeley, CA, USA</conf-loc>
+          <conf-date>22&#x2013;25 June 2010</conf-date>
+          <publisher-name>Springer</publisher-name>
+          <publisher-loc>Berlin/Heidelberg, Germany</publisher-loc>
+          <year>2010</year>
+          <fpage>151</fpage>
+          <lpage>161</lpage>
+        </element-citation>
+      </ref>
+      <ref id="B24-computation-10-00092">
+        <label>24.</label>
+        <element-citation publication-type="journal">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Lehmann</surname>
+              <given-names>M.</given-names>
+            </name>
+            <name>
+              <surname>Oehlschl&#xE4;gel</surname>
+              <given-names>L.M.</given-names>
+            </name>
+            <name>
+              <surname>H&#xE4;usl</surname>
+              <given-names>F.P.</given-names>
+            </name>
+            <name>
+              <surname>Held</surname>
+              <given-names>A.</given-names>
+            </name>
+            <name>
+              <surname>Gekle</surname>
+              <given-names>S.</given-names>
+            </name>
+          </person-group>
+          <article-title>Ejection of marine microplastics by raindrops: A computational and experimental study</article-title>
+          <source>Microplastics Nanoplastics</source>
+          <year>2021</year>
+          <volume>1</volume>
+          <fpage>18</fpage>
+          <pub-id pub-id-type="doi">10.1186/s43591-021-00018-8</pub-id>
+        </element-citation>
+      </ref>
+      <ref id="B25-computation-10-00092">
+        <label>25.</label>
+        <element-citation publication-type="journal">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Laermanns</surname>
+              <given-names>H.</given-names>
+            </name>
+            <name>
+              <surname>Lehmann</surname>
+              <given-names>M.</given-names>
+            </name>
+            <name>
+              <surname>Klee</surname>
+              <given-names>M.</given-names>
+            </name>
+            <name>
+              <surname>L&#xF6;der</surname>
+              <given-names>M.G.</given-names>
+            </name>
+            <name>
+              <surname>Gekle</surname>
+              <given-names>S.</given-names>
+            </name>
+            <name>
+              <surname>Bogner</surname>
+              <given-names>C.</given-names>
+            </name>
+          </person-group>
+          <article-title>Tracing the horizontal transport of microplastics on rough surfaces</article-title>
+          <source>Microplastics Nanoplastics</source>
+          <year>2021</year>
+          <volume>1</volume>
+          <fpage>11</fpage>
+          <pub-id pub-id-type="doi">10.1186/s43591-021-00010-2</pub-id>
+        </element-citation>
+      </ref>
+      <ref id="B26-computation-10-00092">
+        <label>26.</label>
+        <element-citation publication-type="journal">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Lehmann</surname>
+              <given-names>M.</given-names>
+            </name>
+            <name>
+              <surname>Gekle</surname>
+              <given-names>S.</given-names>
+            </name>
+          </person-group>
+          <article-title>Analytic Solution to the Piecewise Linear Interface Construction Problem and Its Application in Curvature Calculation for Volume-of-Fluid Simulation Codes</article-title>
+          <source>Computation</source>
+          <year>2022</year>
+          <volume>10</volume>
+          <elocation-id>21</elocation-id>
+          <pub-id pub-id-type="doi">10.3390/computation10020021</pub-id>
+        </element-citation>
+      </ref>
+      <ref id="B27-computation-10-00092">
+        <label>27.</label>
+        <element-citation publication-type="thesis">
+          <person-group person-group-type="author">
+            <name>
+              <surname>H&#xE4;usl</surname>
+              <given-names>F.</given-names>
+            </name>
+          </person-group>
+          <article-title>MPI-Based Multi-GPU Extension of the Lattice Boltzmann Method</article-title>
+          <source>Bachelor&#x2019;s Thesis</source>
+          <publisher-name>University of Bayreuth</publisher-name>
+          <publisher-loc>Bayreuth, Germay</publisher-loc>
+          <year>2019</year>
+        </element-citation>
+      </ref>
+      <ref id="B28-computation-10-00092">
+        <label>28.</label>
+        <element-citation publication-type="thesis">
+          <person-group person-group-type="author">
+            <name>
+              <surname>H&#xE4;usl</surname>
+              <given-names>F.</given-names>
+            </name>
+          </person-group>
+          <article-title>Soft Objects in Newtonian and Non-Newtonian Fluids: A Computational Study of Bubbles and Capsules in Flow</article-title>
+          <source>Master&#x2019;s Thesis</source>
+          <publisher-name>University of Bayreuth</publisher-name>
+          <publisher-loc>Bayreuth, Germay</publisher-loc>
+          <year>2021</year>
+        </element-citation>
+      </ref>
+      <ref id="B29-computation-10-00092">
+        <label>29.</label>
+        <element-citation publication-type="journal">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Limbach</surname>
+              <given-names>H.J.</given-names>
+            </name>
+            <name>
+              <surname>Arnold</surname>
+              <given-names>A.</given-names>
+            </name>
+            <name>
+              <surname>Mann</surname>
+              <given-names>B.A.</given-names>
+            </name>
+            <name>
+              <surname>Holm</surname>
+              <given-names>C.</given-names>
+            </name>
+          </person-group>
+          <article-title>ESPResSo&#x2014;An extensible simulation package for research on soft matter systems</article-title>
+          <source>Comput. Phys. Commun.</source>
+          <year>2006</year>
+          <volume>174</volume>
+          <fpage>704</fpage>
+          <lpage>727</lpage>
+          <pub-id pub-id-type="doi">10.1016/j.cpc.2005.10.005</pub-id>
+        </element-citation>
+      </ref>
+      <ref id="B30-computation-10-00092">
+        <label>30.</label>
+        <element-citation publication-type="web">
+          <person-group person-group-type="author">
+            <collab>Institute for Computational Physics, Universit&#xE4;t Stuttgart</collab>
+          </person-group>
+          <article-title>ESPResSo User&#x2019;s Guide</article-title>
+          <year>2016</year>
+          <comment>Available online: <ext-link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="http://espressomd.org/wordpress/wp-content/uploads/2016/07/ug_07_2016.pdf" ext-link-type="uri">http://espressomd.org/wordpress/wp-content/uploads/2016/07/ug_07_2016.pdf</ext-link></comment>
+          <date-in-citation content-type="access-date" iso-8601-date="2018-06-15">(accessed on 15 June 2018)</date-in-citation>
+        </element-citation>
+      </ref>
+      <ref id="B31-computation-10-00092">
+        <label>31.</label>
+        <element-citation publication-type="journal">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Hong</surname>
+              <given-names>P.Y.</given-names>
+            </name>
+            <name>
+              <surname>Huang</surname>
+              <given-names>L.M.</given-names>
+            </name>
+            <name>
+              <surname>Lin</surname>
+              <given-names>L.S.</given-names>
+            </name>
+            <name>
+              <surname>Lin</surname>
+              <given-names>C.A.</given-names>
+            </name>
+          </person-group>
+          <article-title>Scalable multi-relaxation-time lattice Boltzmann simulations on multi-GPU cluster</article-title>
+          <source>Comput. Fluids</source>
+          <year>2015</year>
+          <volume>110</volume>
+          <fpage>1</fpage>
+          <lpage>8</lpage>
+          <pub-id pub-id-type="doi">10.1016/j.compfluid.2014.12.010</pub-id>
+        </element-citation>
+      </ref>
+      <ref id="B32-computation-10-00092">
+        <label>32.</label>
+        <element-citation publication-type="journal">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Xian</surname>
+              <given-names>W.</given-names>
+            </name>
+            <name>
+              <surname>Takayuki</surname>
+              <given-names>A.</given-names>
+            </name>
+          </person-group>
+          <article-title>Multi-GPU performance of incompressible flow computation by lattice Boltzmann method on GPU cluster</article-title>
+          <source>Parallel Comput.</source>
+          <year>2011</year>
+          <volume>37</volume>
+          <fpage>521</fpage>
+          <lpage>535</lpage>
+          <pub-id pub-id-type="doi">10.1016/j.parco.2011.02.007</pub-id>
+        </element-citation>
+      </ref>
+      <ref id="B33-computation-10-00092">
+        <label>33.</label>
+        <element-citation publication-type="confproc">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Ho</surname>
+              <given-names>M.Q.</given-names>
+            </name>
+            <name>
+              <surname>Obrecht</surname>
+              <given-names>C.</given-names>
+            </name>
+            <name>
+              <surname>Tourancheau</surname>
+              <given-names>B.</given-names>
+            </name>
+            <name>
+              <surname>de Dinechin</surname>
+              <given-names>B.D.</given-names>
+            </name>
+            <name>
+              <surname>Hascoet</surname>
+              <given-names>J.</given-names>
+            </name>
+          </person-group>
+          <article-title>Improving 3D Lattice Boltzmann Method stencil with asynchronous transfers on many-core processors</article-title>
+          <source>Proceedings of the 2017 IEEE 36th International Performance Computing and Communications Conference (IPCCC)</source>
+          <conf-loc>San Diego, CA, USA</conf-loc>
+          <conf-date>10&#x2013;12 December 2017</conf-date>
+          <fpage>1</fpage>
+          <lpage>9</lpage>
+        </element-citation>
+      </ref>
+      <ref id="B34-computation-10-00092">
+        <label>34.</label>
+        <element-citation publication-type="journal">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Habich</surname>
+              <given-names>J.</given-names>
+            </name>
+            <name>
+              <surname>Feichtinger</surname>
+              <given-names>C.</given-names>
+            </name>
+            <name>
+              <surname>K&#xF6;stler</surname>
+              <given-names>H.</given-names>
+            </name>
+            <name>
+              <surname>Hager</surname>
+              <given-names>G.</given-names>
+            </name>
+            <name>
+              <surname>Wellein</surname>
+              <given-names>G.</given-names>
+            </name>
+          </person-group>
+          <article-title>Performance engineering for the lattice Boltzmann method on GPGPUs: Architectural requirements and performance results</article-title>
+          <source>Comput. Fluids</source>
+          <year>2013</year>
+          <volume>80</volume>
+          <fpage>276</fpage>
+          <lpage>282</lpage>
+          <pub-id pub-id-type="doi">10.1016/j.compfluid.2012.02.013</pub-id>
+        </element-citation>
+      </ref>
+      <ref id="B35-computation-10-00092">
+        <label>35.</label>
+        <element-citation publication-type="journal">
+          <person-group person-group-type="author">
+            <name>
+              <surname>T&#xF6;lke</surname>
+              <given-names>J.</given-names>
+            </name>
+            <name>
+              <surname>Krafczyk</surname>
+              <given-names>M.</given-names>
+            </name>
+          </person-group>
+          <article-title>TeraFLOP computing on a desktop PC with GPUs for 3D CFD</article-title>
+          <source>Int. J. Comput. Fluid Dyn.</source>
+          <year>2008</year>
+          <volume>22</volume>
+          <fpage>443</fpage>
+          <lpage>456</lpage>
+          <pub-id pub-id-type="doi">10.1080/10618560802238275</pub-id>
+        </element-citation>
+      </ref>
+      <ref id="B36-computation-10-00092">
+        <label>36.</label>
+        <element-citation publication-type="confproc">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Herschlag</surname>
+              <given-names>G.</given-names>
+            </name>
+            <name>
+              <surname>Lee</surname>
+              <given-names>S.</given-names>
+            </name>
+            <name>
+              <surname>Vetter</surname>
+              <given-names>J.S.</given-names>
+            </name>
+            <name>
+              <surname>Randles</surname>
+              <given-names>A.</given-names>
+            </name>
+          </person-group>
+          <article-title>GPU data access on complex geometries for D3Q19 lattice Boltzmann method</article-title>
+          <source>Proceedings of the 2018 IEEE International Parallel and Distributed Processing Symposium (IPDPS)</source>
+          <conf-loc>Vancouver, BC, Canada</conf-loc>
+          <conf-date>21&#x2013;25 May 2018</conf-date>
+          <fpage>825</fpage>
+          <lpage>834</lpage>
+        </element-citation>
+      </ref>
+      <ref id="B37-computation-10-00092">
+        <label>37.</label>
+        <element-citation publication-type="confproc">
+          <person-group person-group-type="author">
+            <name>
+              <surname>de Oliveira</surname>
+              <given-names>W.B.</given-names>
+              <suffix>Jr.</suffix>
+            </name>
+            <name>
+              <surname>Lugarini</surname>
+              <given-names>A.</given-names>
+            </name>
+            <name>
+              <surname>Franco</surname>
+              <given-names>A.T.</given-names>
+            </name>
+          </person-group>
+          <article-title>Performance analysis of the lattice Boltzmann method implementation on GPU</article-title>
+          <source>Proceedings of the XL Ibero-Latin-American Congress on Computational Methods in Engineering, ABMEC</source>
+          <conf-loc>Natal, Brazil</conf-loc>
+          <conf-date>11&#x2013;14 November 2019</conf-date>
+        </element-citation>
+      </ref>
+      <ref id="B38-computation-10-00092">
+        <label>38.</label>
+        <element-citation publication-type="journal">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Rinaldi</surname>
+              <given-names>P.R.</given-names>
+            </name>
+            <name>
+              <surname>Dari</surname>
+              <given-names>E.</given-names>
+            </name>
+            <name>
+              <surname>V&#xE9;nere</surname>
+              <given-names>M.J.</given-names>
+            </name>
+            <name>
+              <surname>Clausse</surname>
+              <given-names>A.</given-names>
+            </name>
+          </person-group>
+          <article-title>A Lattice-Boltzmann solver for 3D fluid simulation on GPU</article-title>
+          <source>Simul. Model. Pract. Theory</source>
+          <year>2012</year>
+          <volume>25</volume>
+          <fpage>163</fpage>
+          <lpage>171</lpage>
+          <pub-id pub-id-type="doi">10.1016/j.simpat.2012.03.004</pub-id>
+        </element-citation>
+      </ref>
+      <ref id="B39-computation-10-00092">
+        <label>39.</label>
+        <element-citation publication-type="confproc">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Rinaldi</surname>
+              <given-names>P.R.</given-names>
+            </name>
+            <name>
+              <surname>Dari</surname>
+              <given-names>E.A.</given-names>
+            </name>
+            <name>
+              <surname>V&#xE9;nere</surname>
+              <given-names>M.J.</given-names>
+            </name>
+            <name>
+              <surname>Clausse</surname>
+              <given-names>A.</given-names>
+            </name>
+          </person-group>
+          <article-title>Fluid Simulation with Lattice Boltzmann Methods Implemented on GPUs Using CUDA</article-title>
+          <source>Proceedings of the HPCLatAm 2009</source>
+          <conf-loc>Buenos Aires, Argentina</conf-loc>
+          <conf-date>26&#x2013;27 August 2009</conf-date>
+        </element-citation>
+      </ref>
+      <ref id="B40-computation-10-00092">
+        <label>40.</label>
+        <element-citation publication-type="journal">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Ames</surname>
+              <given-names>J.</given-names>
+            </name>
+            <name>
+              <surname>Puleri</surname>
+              <given-names>D.F.</given-names>
+            </name>
+            <name>
+              <surname>Balogh</surname>
+              <given-names>P.</given-names>
+            </name>
+            <name>
+              <surname>Gounley</surname>
+              <given-names>J.</given-names>
+            </name>
+            <name>
+              <surname>Draeger</surname>
+              <given-names>E.W.</given-names>
+            </name>
+            <name>
+              <surname>Randles</surname>
+              <given-names>A.</given-names>
+            </name>
+          </person-group>
+          <article-title>Multi-GPU immersed boundary method hemodynamics simulations</article-title>
+          <source>J. Comput. Sci.</source>
+          <year>2020</year>
+          <volume>44</volume>
+          <fpage>101153</fpage>
+          <pub-id pub-id-type="doi">10.1016/j.jocs.2020.101153</pub-id>
+        </element-citation>
+      </ref>
+      <ref id="B41-computation-10-00092">
+        <label>41.</label>
+        <element-citation publication-type="journal">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Xiong</surname>
+              <given-names>Q.</given-names>
+            </name>
+            <name>
+              <surname>Li</surname>
+              <given-names>B.</given-names>
+            </name>
+            <name>
+              <surname>Xu</surname>
+              <given-names>J.</given-names>
+            </name>
+            <name>
+              <surname>Fang</surname>
+              <given-names>X.</given-names>
+            </name>
+            <name>
+              <surname>Wang</surname>
+              <given-names>X.</given-names>
+            </name>
+            <name>
+              <surname>Wang</surname>
+              <given-names>L.</given-names>
+            </name>
+            <name>
+              <surname>He</surname>
+              <given-names>X.</given-names>
+            </name>
+            <name>
+              <surname>Ge</surname>
+              <given-names>W.</given-names>
+            </name>
+          </person-group>
+          <article-title>Efficient parallel implementation of the lattice Boltzmann method on large clusters of graphic processing units</article-title>
+          <source>Chin. Sci. Bull.</source>
+          <year>2012</year>
+          <volume>57</volume>
+          <fpage>707</fpage>
+          <lpage>715</lpage>
+          <pub-id pub-id-type="doi">10.1007/s11434-011-4908-y</pub-id>
+        </element-citation>
+      </ref>
+      <ref id="B42-computation-10-00092">
+        <label>42.</label>
+        <element-citation publication-type="journal">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Zhu</surname>
+              <given-names>H.</given-names>
+            </name>
+            <name>
+              <surname>Xu</surname>
+              <given-names>X.</given-names>
+            </name>
+            <name>
+              <surname>Huang</surname>
+              <given-names>G.</given-names>
+            </name>
+            <name>
+              <surname>Qin</surname>
+              <given-names>Z.</given-names>
+            </name>
+            <name>
+              <surname>Wen</surname>
+              <given-names>B.</given-names>
+            </name>
+          </person-group>
+          <article-title>An Efficient Graphics Processing Unit Scheme for Complex Geometry Simulations Using the Lattice Boltzmann Method</article-title>
+          <source>IEEE Access</source>
+          <year>2020</year>
+          <volume>8</volume>
+          <fpage>185158</fpage>
+          <lpage>185168</lpage>
+          <pub-id pub-id-type="doi">10.1109/ACCESS.2020.3029800</pub-id>
+        </element-citation>
+      </ref>
+      <ref id="B43-computation-10-00092">
+        <label>43.</label>
+        <element-citation publication-type="journal">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Kuznik</surname>
+              <given-names>F.</given-names>
+            </name>
+            <name>
+              <surname>Obrecht</surname>
+              <given-names>C.</given-names>
+            </name>
+            <name>
+              <surname>Rusaouen</surname>
+              <given-names>G.</given-names>
+            </name>
+            <name>
+              <surname>Roux</surname>
+              <given-names>J.J.</given-names>
+            </name>
+          </person-group>
+          <article-title>LBM based flow simulation using GPU computing processor</article-title>
+          <source>Comput. Math. Appl.</source>
+          <year>2010</year>
+          <volume>59</volume>
+          <fpage>2380</fpage>
+          <lpage>2392</lpage>
+          <pub-id pub-id-type="doi">10.1016/j.camwa.2009.08.052</pub-id>
+        </element-citation>
+      </ref>
+      <ref id="B44-computation-10-00092">
+        <label>44.</label>
+        <element-citation publication-type="thesis">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Horga</surname>
+              <given-names>A.</given-names>
+            </name>
+          </person-group>
+          <article-title>With Lattice Boltzmann Models Using CUDA Enabled GPGPUs</article-title>
+          <source>Master&#x2019;s Thesis</source>
+          <publisher-name>University of Timsoara</publisher-name>
+          <publisher-loc>Timsoara, Romania</publisher-loc>
+          <year>2013</year>
+        </element-citation>
+      </ref>
+      <ref id="B45-computation-10-00092">
+        <label>45.</label>
+        <element-citation publication-type="book">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Geveler</surname>
+              <given-names>M.</given-names>
+            </name>
+            <name>
+              <surname>Ribbrock</surname>
+              <given-names>D.</given-names>
+            </name>
+            <name>
+              <surname>G&#xF6;ddeke</surname>
+              <given-names>D.</given-names>
+            </name>
+            <name>
+              <surname>Turek</surname>
+              <given-names>S.</given-names>
+            </name>
+          </person-group>
+          <article-title>Lattice-Boltzmann simulation of the shallow-water equations with fluid-structure interaction on multi-and manycore processors</article-title>
+          <source>Facing the Multicore-Challenge</source>
+          <publisher-name>Springer</publisher-name>
+          <publisher-loc>Wiesbaden, Germany</publisher-loc>
+          <year>2010</year>
+          <fpage>92</fpage>
+          <lpage>104</lpage>
+        </element-citation>
+      </ref>
+      <ref id="B46-computation-10-00092">
+        <label>46.</label>
+        <element-citation publication-type="journal">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Beny</surname>
+              <given-names>J.</given-names>
+            </name>
+            <name>
+              <surname>Latt</surname>
+              <given-names>J.</given-names>
+            </name>
+          </person-group>
+          <article-title>Efficient LBM on GPUs for dense moving objects using immersed boundary condition</article-title>
+          <source>arXiv</source>
+          <year>2019</year>
+          <pub-id pub-id-type="arxiv">1904.02108</pub-id>
+        </element-citation>
+      </ref>
+      <ref id="B47-computation-10-00092">
+        <label>47.</label>
+        <element-citation publication-type="journal">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Tekic</surname>
+              <given-names>P.M.</given-names>
+            </name>
+            <name>
+              <surname>Radjenovic</surname>
+              <given-names>J.B.</given-names>
+            </name>
+            <name>
+              <surname>Rackovic</surname>
+              <given-names>M.</given-names>
+            </name>
+          </person-group>
+          <article-title>Implementation of the Lattice Boltzmann method on heterogeneous hardware and platforms using OpenCL</article-title>
+          <source>Adv. Electr. Comput. Eng.</source>
+          <year>2012</year>
+          <volume>12</volume>
+          <fpage>51</fpage>
+          <lpage>56</lpage>
+          <pub-id pub-id-type="doi">10.4316/aece.2012.01009</pub-id>
+        </element-citation>
+      </ref>
+      <ref id="B48-computation-10-00092">
+        <label>48.</label>
+        <element-citation publication-type="confproc">
+          <person-group person-group-type="author">
+            <name>
+              <surname>B&#xE9;ny</surname>
+              <given-names>J.</given-names>
+            </name>
+            <name>
+              <surname>Kotsalos</surname>
+              <given-names>C.</given-names>
+            </name>
+            <name>
+              <surname>Latt</surname>
+              <given-names>J.</given-names>
+            </name>
+          </person-group>
+          <article-title>Toward full GPU implementation of fluid-structure interaction</article-title>
+          <source>Proceedings of the 2019 18th International Symposium on Parallel and Distributed Computing (ISPDC)</source>
+          <conf-loc>Amsterdam, The Netherlands</conf-loc>
+          <conf-date>3&#x2013;7 June 2019</conf-date>
+          <fpage>16</fpage>
+          <lpage>22</lpage>
+        </element-citation>
+      </ref>
+      <ref id="B49-computation-10-00092">
+        <label>49.</label>
+        <element-citation publication-type="journal">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Boroni</surname>
+              <given-names>G.</given-names>
+            </name>
+            <name>
+              <surname>Dottori</surname>
+              <given-names>J.</given-names>
+            </name>
+            <name>
+              <surname>Rinaldi</surname>
+              <given-names>P.</given-names>
+            </name>
+          </person-group>
+          <article-title>FULL GPU implementation of lattice-Boltzmann methods with immersed boundary conditions for fast fluid simulations</article-title>
+          <source>Int. J. Multiphysics</source>
+          <year>2017</year>
+          <volume>11</volume>
+          <fpage>1</fpage>
+          <lpage>14</lpage>
+        </element-citation>
+      </ref>
+      <ref id="B50-computation-10-00092">
+        <label>50.</label>
+        <element-citation publication-type="book">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Griebel</surname>
+              <given-names>M.</given-names>
+            </name>
+            <name>
+              <surname>Schweitzer</surname>
+              <given-names>M.A.</given-names>
+            </name>
+          </person-group>
+          <source>Meshfree Methods for Partial Differential Equations II</source>
+          <publisher-name>Springer</publisher-name>
+          <publisher-loc>Cham, Switzerland</publisher-loc>
+          <year>2005</year>
+        </element-citation>
+      </ref>
+      <ref id="B51-computation-10-00092">
+        <label>51.</label>
+        <element-citation publication-type="journal">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Zitz</surname>
+              <given-names>S.</given-names>
+            </name>
+            <name>
+              <surname>Scagliarini</surname>
+              <given-names>A.</given-names>
+            </name>
+            <name>
+              <surname>Harting</surname>
+              <given-names>J.</given-names>
+            </name>
+          </person-group>
+          <article-title>Lattice Boltzmann simulations of stochastic thin film dewetting</article-title>
+          <source>Phys. Rev. E</source>
+          <year>2021</year>
+          <volume>104</volume>
+          <fpage>034801</fpage>
+          <pub-id pub-id-type="doi">10.1103/PhysRevE.104.034801</pub-id>
+          <pub-id pub-id-type="pmid">34654097</pub-id>
+        </element-citation>
+      </ref>
+      <ref id="B52-computation-10-00092">
+        <label>52.</label>
+        <element-citation publication-type="journal">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Jan&#xDF;en</surname>
+              <given-names>C.F.</given-names>
+            </name>
+            <name>
+              <surname>Mierke</surname>
+              <given-names>D.</given-names>
+            </name>
+            <name>
+              <surname>&#xDC;berr&#xFC;ck</surname>
+              <given-names>M.</given-names>
+            </name>
+            <name>
+              <surname>Gralher</surname>
+              <given-names>S.</given-names>
+            </name>
+            <name>
+              <surname>Rung</surname>
+              <given-names>T.</given-names>
+            </name>
+          </person-group>
+          <article-title>Validation of the GPU-accelerated CFD solver ELBE for free surface flow problems in civil and environmental engineering</article-title>
+          <source>Computation</source>
+          <year>2015</year>
+          <volume>3</volume>
+          <fpage>354</fpage>
+          <lpage>385</lpage>
+          <pub-id pub-id-type="doi">10.3390/computation3030354</pub-id>
+        </element-citation>
+      </ref>
+      <ref id="B53-computation-10-00092">
+        <label>53.</label>
+        <element-citation publication-type="journal">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Habich</surname>
+              <given-names>J.</given-names>
+            </name>
+            <name>
+              <surname>Zeiser</surname>
+              <given-names>T.</given-names>
+            </name>
+            <name>
+              <surname>Hager</surname>
+              <given-names>G.</given-names>
+            </name>
+            <name>
+              <surname>Wellein</surname>
+              <given-names>G.</given-names>
+            </name>
+          </person-group>
+          <article-title>Performance analysis and optimization strategies for a D3Q19 lattice Boltzmann kernel on nVIDIA GPUs using CUDA</article-title>
+          <source>Adv. Eng. Softw.</source>
+          <year>2011</year>
+          <volume>42</volume>
+          <fpage>266</fpage>
+          <lpage>272</lpage>
+          <pub-id pub-id-type="doi">10.1016/j.advengsoft.2010.10.007</pub-id>
+        </element-citation>
+      </ref>
+      <ref id="B54-computation-10-00092">
+        <label>54.</label>
+        <element-citation publication-type="confproc">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Calore</surname>
+              <given-names>E.</given-names>
+            </name>
+            <name>
+              <surname>Marchi</surname>
+              <given-names>D.</given-names>
+            </name>
+            <name>
+              <surname>Schifano</surname>
+              <given-names>S.F.</given-names>
+            </name>
+            <name>
+              <surname>Tripiccione</surname>
+              <given-names>R.</given-names>
+            </name>
+          </person-group>
+          <article-title>Optimizing communications in multi-GPU Lattice Boltzmann simulations</article-title>
+          <source>Proceedings of the 2015 International Conference on High Performance Computing &amp; Simulation (HPCS)</source>
+          <conf-loc>Amsterdam, The Netherlands</conf-loc>
+          <conf-date>20&#x2013;24 July 2015</conf-date>
+          <fpage>55</fpage>
+          <lpage>62</lpage>
+        </element-citation>
+      </ref>
+      <ref id="B55-computation-10-00092">
+        <label>55.</label>
+        <element-citation publication-type="journal">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Onodera</surname>
+              <given-names>N.</given-names>
+            </name>
+            <name>
+              <surname>Idomura</surname>
+              <given-names>Y.</given-names>
+            </name>
+            <name>
+              <surname>Uesawa</surname>
+              <given-names>S.</given-names>
+            </name>
+            <name>
+              <surname>Yamashita</surname>
+              <given-names>S.</given-names>
+            </name>
+            <name>
+              <surname>Yoshida</surname>
+              <given-names>H.</given-names>
+            </name>
+          </person-group>
+          <article-title>Locally mesh-refined lattice Boltzmann method for fuel debris air cooling analysis on GPU supercomputer</article-title>
+          <source>Mech. Eng. J.</source>
+          <year>2020</year>
+          <volume>7</volume>
+          <fpage>19</fpage>
+          <lpage>00531</lpage>
+          <pub-id pub-id-type="doi">10.1299/mej.19-00531</pub-id>
+        </element-citation>
+      </ref>
+      <ref id="B56-computation-10-00092">
+        <label>56.</label>
+        <element-citation publication-type="journal">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Falcucci</surname>
+              <given-names>G.</given-names>
+            </name>
+            <name>
+              <surname>Amati</surname>
+              <given-names>G.</given-names>
+            </name>
+            <name>
+              <surname>Fanelli</surname>
+              <given-names>P.</given-names>
+            </name>
+            <name>
+              <surname>Krastev</surname>
+              <given-names>V.K.</given-names>
+            </name>
+            <name>
+              <surname>Polverino</surname>
+              <given-names>G.</given-names>
+            </name>
+            <name>
+              <surname>Porfiri</surname>
+              <given-names>M.</given-names>
+            </name>
+            <name>
+              <surname>Succi</surname>
+              <given-names>S.</given-names>
+            </name>
+          </person-group>
+          <article-title>Extreme flow simulations reveal skeletal adaptations of deep-sea sponges</article-title>
+          <source>Nature</source>
+          <year>2021</year>
+          <volume>595</volume>
+          <fpage>537</fpage>
+          <lpage>541</lpage>
+          <pub-id pub-id-type="doi">10.1038/s41586-021-03658-1</pub-id>
+        </element-citation>
+      </ref>
+      <ref id="B57-computation-10-00092">
+        <label>57.</label>
+        <element-citation publication-type="journal">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Zitz</surname>
+              <given-names>S.</given-names>
+            </name>
+            <name>
+              <surname>Scagliarini</surname>
+              <given-names>A.</given-names>
+            </name>
+            <name>
+              <surname>Maddu</surname>
+              <given-names>S.</given-names>
+            </name>
+            <name>
+              <surname>Darhuber</surname>
+              <given-names>A.A.</given-names>
+            </name>
+            <name>
+              <surname>Harting</surname>
+              <given-names>J.</given-names>
+            </name>
+          </person-group>
+          <article-title>Lattice Boltzmann method for thin-liquid-film hydrodynamics</article-title>
+          <source>Phys. Rev. E</source>
+          <year>2019</year>
+          <volume>100</volume>
+          <fpage>033313</fpage>
+          <pub-id pub-id-type="doi">10.1103/PhysRevE.100.033313</pub-id>
+        </element-citation>
+      </ref>
+      <ref id="B58-computation-10-00092">
+        <label>58.</label>
+        <element-citation publication-type="confproc">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Wei</surname>
+              <given-names>C.</given-names>
+            </name>
+            <name>
+              <surname>Zhenghua</surname>
+              <given-names>W.</given-names>
+            </name>
+            <name>
+              <surname>Zongzhe</surname>
+              <given-names>L.</given-names>
+            </name>
+            <name>
+              <surname>Lu</surname>
+              <given-names>Y.</given-names>
+            </name>
+            <name>
+              <surname>Yongxian</surname>
+              <given-names>W.</given-names>
+            </name>
+          </person-group>
+          <article-title>An improved LBM approach for heterogeneous GPU-CPU clusters</article-title>
+          <source>Proceedings of the 2011 4th International Conference on Biomedical Engineering and Informatics (BMEI)</source>
+          <conf-loc>Shanghai, China</conf-loc>
+          <conf-date>15&#x2013;17 October 2011</conf-date>
+          <volume>Volume 4</volume>
+          <fpage>2095</fpage>
+          <lpage>2098</lpage>
+        </element-citation>
+      </ref>
+      <ref id="B59-computation-10-00092">
+        <label>59.</label>
+        <element-citation publication-type="journal">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Gray</surname>
+              <given-names>F.</given-names>
+            </name>
+            <name>
+              <surname>Boek</surname>
+              <given-names>E.</given-names>
+            </name>
+          </person-group>
+          <article-title>Enhancing computational precision for lattice Boltzmann schemes in porous media flows</article-title>
+          <source>Computation</source>
+          <year>2016</year>
+          <volume>4</volume>
+          <elocation-id>11</elocation-id>
+          <pub-id pub-id-type="doi">10.3390/computation4010011</pub-id>
+        </element-citation>
+      </ref>
+      <ref id="B60-computation-10-00092">
+        <label>60.</label>
+        <element-citation publication-type="book">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Wellein</surname>
+              <given-names>G.</given-names>
+            </name>
+            <name>
+              <surname>Lammers</surname>
+              <given-names>P.</given-names>
+            </name>
+            <name>
+              <surname>Hager</surname>
+              <given-names>G.</given-names>
+            </name>
+            <name>
+              <surname>Donath</surname>
+              <given-names>S.</given-names>
+            </name>
+            <name>
+              <surname>Zeiser</surname>
+              <given-names>T.</given-names>
+            </name>
+          </person-group>
+          <article-title>Towards optimal performance for lattice Boltzmann applications on terascale computers</article-title>
+          <source>Parallel Computational Fluid Dynamics 2005</source>
+          <publisher-name>Elsevier</publisher-name>
+          <publisher-loc>Amsterdam, The Netherlands</publisher-loc>
+          <year>2006</year>
+          <fpage>31</fpage>
+          <lpage>40</lpage>
+        </element-citation>
+      </ref>
+      <ref id="B61-computation-10-00092">
+        <label>61.</label>
+        <element-citation publication-type="journal">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Wittmann</surname>
+              <given-names>M.</given-names>
+            </name>
+            <name>
+              <surname>Zeiser</surname>
+              <given-names>T.</given-names>
+            </name>
+            <name>
+              <surname>Hager</surname>
+              <given-names>G.</given-names>
+            </name>
+            <name>
+              <surname>Wellein</surname>
+              <given-names>G.</given-names>
+            </name>
+          </person-group>
+          <article-title>Comparison of different propagation steps for lattice Boltzmann methods</article-title>
+          <source>Comput. Math. Appl.</source>
+          <year>2013</year>
+          <volume>65</volume>
+          <fpage>924</fpage>
+          <lpage>935</lpage>
+          <pub-id pub-id-type="doi">10.1016/j.camwa.2012.05.002</pub-id>
+        </element-citation>
+      </ref>
+      <ref id="B62-computation-10-00092">
+        <label>62.</label>
+        <element-citation publication-type="thesis">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Wittmann</surname>
+              <given-names>M.</given-names>
+            </name>
+          </person-group>
+          <article-title>Hardware-effiziente, hochparallele Implementierungen von Lattice-Boltzmann-Verfahren f&#xFC;r komplexe Geometrien</article-title>
+          <source>Ph.D. Thesis</source>
+          <publisher-name>Friedrich-Alexander-Universit&#xE4;t</publisher-name>
+          <publisher-loc>Erlangen, Germany</publisher-loc>
+          <year>2016</year>
+        </element-citation>
+      </ref>
+      <ref id="B63-computation-10-00092">
+        <label>63.</label>
+        <element-citation publication-type="thesis">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Krause</surname>
+              <given-names>M.</given-names>
+            </name>
+          </person-group>
+          <article-title>Fluid Flow Simulation and Optimisation with Lattice Boltzmann Methods on High Performance Computers: Application to the Human Respiratory System</article-title>
+          <source>Ph.D. Thesis</source>
+          <publisher-name>Karlsruhe Institute of Technology (KIT), Universit&#xE4;t Karlsruhe (TH)</publisher-name>
+          <publisher-loc>Karlsruhe, Germany</publisher-loc>
+          <year>2010</year>
+          <comment>Available online: <ext-link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://publikationen.bibliothek.kit.edu/1000019768" ext-link-type="uri">https://publikationen.bibliothek.kit.edu/1000019768</ext-link></comment>
+          <date-in-citation content-type="access-date" iso-8601-date="2019-02-20">(accessed on 20 February 2019)</date-in-citation>
+        </element-citation>
+      </ref>
+      <ref id="B64-computation-10-00092">
+        <label>64.</label>
+        <element-citation publication-type="journal">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Succi</surname>
+              <given-names>S.</given-names>
+            </name>
+            <name>
+              <surname>Amati</surname>
+              <given-names>G.</given-names>
+            </name>
+            <name>
+              <surname>Bernaschi</surname>
+              <given-names>M.</given-names>
+            </name>
+            <name>
+              <surname>Falcucci</surname>
+              <given-names>G.</given-names>
+            </name>
+            <name>
+              <surname>Lauricella</surname>
+              <given-names>M.</given-names>
+            </name>
+            <name>
+              <surname>Montessori</surname>
+              <given-names>A.</given-names>
+            </name>
+          </person-group>
+          <article-title>Towards exascale lattice Boltzmann computing</article-title>
+          <source>Comput. Fluids</source>
+          <year>2019</year>
+          <volume>181</volume>
+          <fpage>107</fpage>
+          <lpage>115</lpage>
+          <pub-id pub-id-type="doi">10.1016/j.compfluid.2019.01.005</pub-id>
+        </element-citation>
+      </ref>
+      <ref id="B65-computation-10-00092">
+        <label>65.</label>
+        <element-citation publication-type="journal">
+          <person-group person-group-type="author">
+            <name>
+              <surname>D&#x2019;Humi&#xE8;res</surname>
+              <given-names>D.</given-names>
+            </name>
+          </person-group>
+          <article-title>Multiple&#x2013;relaxation&#x2013;time lattice Boltzmann models in three dimensions</article-title>
+          <source>Philos. Trans. R. Soc. London. Ser. A Math. Phys. Eng. Sci.</source>
+          <year>2002</year>
+          <volume>360</volume>
+          <fpage>437</fpage>
+          <lpage>451</lpage>
+          <pub-id pub-id-type="doi">10.1098/rsta.2001.0955</pub-id>
+        </element-citation>
+      </ref>
+      <ref id="B66-computation-10-00092">
+        <label>66.</label>
+        <element-citation publication-type="book">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Latt</surname>
+              <given-names>J.</given-names>
+            </name>
+          </person-group>
+          <source>Technical Report: How to Implement Your DdQq Dynamics with Only q Variables per Node (Instead of 2q)</source>
+          <publisher-name>Tufts University</publisher-name>
+          <publisher-loc>Medford, MA, USA</publisher-loc>
+          <year>2007</year>
+          <fpage>1</fpage>
+          <lpage>8</lpage>
+        </element-citation>
+      </ref>
+      <ref id="B67-computation-10-00092">
+        <label>67.</label>
+        <element-citation publication-type="journal">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Bogner</surname>
+              <given-names>S.</given-names>
+            </name>
+            <name>
+              <surname>R&#xFC;de</surname>
+              <given-names>U.</given-names>
+            </name>
+            <name>
+              <surname>Harting</surname>
+              <given-names>J.</given-names>
+            </name>
+          </person-group>
+          <article-title>Curvature estimation from a volume-of-fluid indicator function for the simulation of surface tension and wetting with a free-surface lattice Boltzmann method</article-title>
+          <source>Phys. Rev. E</source>
+          <year>2016</year>
+          <volume>93</volume>
+          <fpage>043302</fpage>
+          <pub-id pub-id-type="doi">10.1103/PhysRevE.93.043302</pub-id>
+          <pub-id pub-id-type="pmid">27176423</pub-id>
+        </element-citation>
+      </ref>
+      <ref id="B68-computation-10-00092">
+        <label>68.</label>
+        <element-citation publication-type="book">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Crane</surname>
+              <given-names>K.</given-names>
+            </name>
+            <name>
+              <surname>Llamas</surname>
+              <given-names>I.</given-names>
+            </name>
+            <name>
+              <surname>Tariq</surname>
+              <given-names>S.</given-names>
+            </name>
+          </person-group>
+          <source>Real-Time Simulation and Rendering of 3d Fluids</source>
+          <publisher-name>GPU gems 3.1, Addison-Wesley Professional</publisher-name>
+          <publisher-loc>Boston, MA, USA</publisher-loc>
+          <year>2007</year>
+          <volume>Volume 3</volume>
+        </element-citation>
+      </ref>
+      <ref id="B69-computation-10-00092">
+        <label>69.</label>
+        <element-citation publication-type="thesis">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Gerace</surname>
+              <given-names>S.</given-names>
+            </name>
+          </person-group>
+          <article-title>A Model Integrated Meshless Solver (MIMS) for Fluid Flow and Heat Transfer</article-title>
+          <source>Ph.D. Thesis</source>
+          <publisher-name>University of Central Florida</publisher-name>
+          <publisher-loc>Orlando, FL, USA</publisher-loc>
+          <year>2010</year>
+        </element-citation>
+      </ref>
+      <ref id="B70-computation-10-00092">
+        <label>70.</label>
+        <element-citation publication-type="book">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Lynch</surname>
+              <given-names>C.E.</given-names>
+            </name>
+          </person-group>
+          <source>Advanced CFD Methods for Wind Turbine Analysis</source>
+          <publisher-name>Georgia Institute of Technology</publisher-name>
+          <publisher-loc>Atlanta, GA, USA</publisher-loc>
+          <year>2011</year>
+        </element-citation>
+      </ref>
+      <ref id="B71-computation-10-00092">
+        <label>71.</label>
+        <element-citation publication-type="thesis">
+          <person-group person-group-type="author">
+            <name>
+              <surname>Ke&#xDF;ler</surname>
+              <given-names>A.</given-names>
+            </name>
+          </person-group>
+          <article-title>Matrix-Free Voxel-Based Finite Element Method for Materials with Heterogeneous Microstructures</article-title>
+          <source>Ph.D. Thesis</source>
+          <publisher-name>der Bauhaus-Universit&#xE4;t Weimar</publisher-name>
+          <publisher-loc>Weimar, Germnay</publisher-loc>
+          <year>2019</year>
+        </element-citation>
+      </ref>
+    </ref-list>
+    <sec sec-type="display-objects">
+      <title>Figures and Table</title>
+      <fig id="computation-10-00092-f001" position="float">
+        <label>Figure 1</label>
+        <caption>
+          <p>One-Step-Pull streaming scheme. Two copies of the DDFs are used to resolve data dependencies.</p>
+        </caption>
+        <graphic xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="computation-10-00092-g001.tif"/>
+      </fig>
+      <fig id="computation-10-00092-f002" position="float">
+        <label>Figure 2</label>
+        <caption>
+          <p>One-Step-Push streaming scheme. Two copies of the DDFs are used to resolve data dependencies.</p>
+        </caption>
+        <graphic xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="computation-10-00092-g002.tif"/>
+      </fig>
+      <fig id="computation-10-00092-f003" position="float">
+        <label>Figure 3</label>
+        <caption>
+          <p>AA-Pattern in-place streaming scheme [<xref ref-type="bibr" rid="B3-computation-10-00092">3</xref>]. Even time steps: DDFs are pulled in from neighbors, collided, and then pushed out to the neighbors again, but stored in opposite orientation. Odd time steps: DDFs are loaded from the center node in opposite orientation, collided, and stored at the center node again in the same orientation as during collision. DDFs are always stored in the same memory locations where they were loaded from, so only one copy of the DDFs is required.</p>
+        </caption>
+        <graphic xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="computation-10-00092-g003.tif"/>
+      </fig>
+      <fig id="computation-10-00092-f004" position="float">
+        <label>Figure 4</label>
+        <caption>
+          <p>Esoteric Twist in-place streaming scheme [<xref ref-type="bibr" rid="B2-computation-10-00092">2</xref>]. Even time steps: DDFs are loaded in a criss-cross pattern shifted north-east by half a node. After collision, DDFs are stored in the same pattern but in opposite orientation. Odd time steps: DDFs are loaded in opposite orientation in a shifted criss-cross pattern that covers only DDFs not touched in the even time step. After collision, DDFs are written back in the same pattern but with regular orientation once again. DDFs are always stored in the same memory locations where they were loaded from, so only one copy of the DDFs is required.</p>
+        </caption>
+        <graphic xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="computation-10-00092-g004.tif"/>
+      </fig>
+      <fig id="computation-10-00092-f005" position="float">
+        <label>Figure 5</label>
+        <caption>
+          <p>Esoteric Pull in-place streaming scheme. Even time steps: DDFs in positive directions are loaded from the center node, and DDFs from negative directions are pulled in from their regular streaming direction neighbors and are collided. Then, DDFs in positive directions are pushed out to neighbors and stored in opposite orientation, and DDFs in negative directions are stored at the center node in opposite orientation. Odd time steps: DDFs in positive directions are loaded from the center node in opposite orientation, and DDFs from negative directions are pulled in from their regular streaming direction neighbors in opposite orientation and are collided. Then, DDFs in positive directions are pushed out to neighbors, and DDFs in negative directions are stored at the center node. DDFs are always stored in the same memory locations where they were loaded from, so only one copy of the DDFs is required.</p>
+        </caption>
+        <graphic xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="computation-10-00092-g005.tif"/>
+      </fig>
+      <fig id="computation-10-00092-f006" position="float">
+        <label>Figure 6</label>
+        <caption>
+          <p>Esoteric Push in-place streaming scheme. <xref ref-type="fig" rid="computation-10-00092-f005">Figure 5</xref> flipped by 180 degrees (except for the temporary DDFs in registers).</p>
+        </caption>
+        <graphic xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="computation-10-00092-g006.tif"/>
+      </fig>
+      <fig id="computation-10-00092-f007" position="float">
+        <label>Figure 7</label>
+        <caption>
+          <p>Performance of Esoteric Pull with D3Q19 SRT on different hardware configurations in the <italic>FluidX3D</italic> OpenCL implementation, in million lattice updates per second (MLUPs/s). Efficiency is calculated by dividing the measured MLUPs/s by the data sheet memory bandwidth times the number of bytes transferred per lattice point and time step (<xref ref-type="table" rid="computation-10-00092-t001">Table 1</xref>). CPU benchmarks are on all cores. Performance comparison with the One-Step-Pull streaming scheme [<xref ref-type="bibr" rid="B13-computation-10-00092">13</xref>] shows only insignificant differences on most dedicated GPUs, but large gains on integrated GPUs and CPUs.</p>
+        </caption>
+        <graphic xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="computation-10-00092-g007.tif"/>
+      </fig>
+      <fig id="computation-10-00092-f008" position="float">
+        <label>Figure 8</label>
+        <caption>
+          <p>Esoteric Pull in-place streaming with FP16C memory compression [<xref ref-type="bibr" rid="B13-computation-10-00092">13</xref>] enables a colossal <inline-formula><mml:math id="mm25"><mml:semantics><mml:mrow><mml:mn>940</mml:mn><mml:mo>&#xD7;</mml:mo><mml:mn>940</mml:mn><mml:mo>&#xD7;</mml:mo><mml:mn>800</mml:mn></mml:mrow></mml:semantics></mml:math></inline-formula> lattice resolution on a single <inline-formula><mml:math id="mm26"><mml:semantics><mml:mrow><mml:mn>48</mml:mn><mml:mspace width="0.166667em"/><mml:mi>GB</mml:mi></mml:mrow></mml:semantics></mml:math></inline-formula> GPU, such as demonstrated here with a raindrop impact simulation. This figure is included in the <xref ref-type="app" rid="app1-computation-10-00092">Supplementary Files</xref> as a video.</p>
+        </caption>
+        <graphic xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="computation-10-00092-g008.tif"/>
+      </fig>
+      <table-wrap id="computation-10-00092-t001" position="float">
+        <object-id pub-id-type="pii">computation-10-00092-t001_Table 1</object-id>
+        <label>Table 1</label>
+        <caption>
+          <p>Comparing memory storage (Bytes/node) and bandwidth (Bytes/node per time step) requirements of the different GPU-compatible streaming algorithms for DdQq LBM with FP32 arithmetic precision and eight available flag bits per node. With the in-place streaming and implicit bounce-back of the Esoteric schemes, and with FP32/16-bit mixed precision as proposed in&#xA0;[<xref ref-type="bibr" rid="B13-computation-10-00092">13</xref>], memory demands and bandwidth are significantly reduced.</p>
+        </caption>
+        <table>
+          <thead>
+            <tr>
+              <th align="center" valign="middle" style="border-bottom:solid thin;border-top:solid thin">Algorithm</th>
+              <th align="center" valign="middle" style="border-bottom:solid thin;border-top:solid thin">Storage</th>
+              <th align="center" valign="middle" style="border-bottom:solid thin;border-top:solid thin">Bandwidth</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td align="center" valign="middle">One-Step Pull</td>
+              <td align="center" valign="middle">
+                <inline-formula>
+                  <mml:math id="mm27">
+                    <mml:semantics>
+                      <mml:mrow>
+                        <mml:mn>8</mml:mn>
+                        <mml:mspace width="0.166667em"/>
+                        <mml:mi>q</mml:mi>
+                        <mml:mo>+</mml:mo>
+                        <mml:mn>4</mml:mn>
+                        <mml:mspace width="0.166667em"/>
+                        <mml:mi>d</mml:mi>
+                        <mml:mo>+</mml:mo>
+                        <mml:mn>5</mml:mn>
+                      </mml:mrow>
+                    </mml:semantics>
+                  </mml:math>
+                </inline-formula>
+              </td>
+              <td align="center" valign="middle">
+                <inline-formula>
+                  <mml:math id="mm28">
+                    <mml:semantics>
+                      <mml:mrow>
+                        <mml:mn>9</mml:mn>
+                        <mml:mspace width="0.166667em"/>
+                        <mml:mi>q</mml:mi>
+                      </mml:mrow>
+                    </mml:semantics>
+                  </mml:math>
+                </inline-formula>
+              </td>
+            </tr>
+            <tr>
+              <td align="center" valign="middle">One-Step Push</td>
+              <td align="center" valign="middle">
+                <inline-formula>
+                  <mml:math id="mm29">
+                    <mml:semantics>
+                      <mml:mrow>
+                        <mml:mn>8</mml:mn>
+                        <mml:mspace width="0.166667em"/>
+                        <mml:mi>q</mml:mi>
+                        <mml:mo>+</mml:mo>
+                        <mml:mn>4</mml:mn>
+                        <mml:mspace width="0.166667em"/>
+                        <mml:mi>d</mml:mi>
+                        <mml:mo>+</mml:mo>
+                        <mml:mn>5</mml:mn>
+                      </mml:mrow>
+                    </mml:semantics>
+                  </mml:math>
+                </inline-formula>
+              </td>
+              <td align="center" valign="middle">
+                <inline-formula>
+                  <mml:math id="mm30">
+                    <mml:semantics>
+                      <mml:mrow>
+                        <mml:mn>9</mml:mn>
+                        <mml:mspace width="0.166667em"/>
+                        <mml:mi>q</mml:mi>
+                      </mml:mrow>
+                    </mml:semantics>
+                  </mml:math>
+                </inline-formula>
+              </td>
+            </tr>
+            <tr>
+              <td align="center" valign="middle">AA-Pattern</td>
+              <td align="center" valign="middle">
+                <inline-formula>
+                  <mml:math id="mm31">
+                    <mml:semantics>
+                      <mml:mrow>
+                        <mml:mn>4</mml:mn>
+                        <mml:mspace width="0.166667em"/>
+                        <mml:mi>q</mml:mi>
+                        <mml:mo>+</mml:mo>
+                        <mml:mn>4</mml:mn>
+                        <mml:mspace width="0.166667em"/>
+                        <mml:mi>d</mml:mi>
+                        <mml:mo>+</mml:mo>
+                        <mml:mn>5</mml:mn>
+                      </mml:mrow>
+                    </mml:semantics>
+                  </mml:math>
+                </inline-formula>
+              </td>
+              <td align="center" valign="middle">
+                <inline-formula>
+                  <mml:math id="mm32">
+                    <mml:semantics>
+                      <mml:mrow>
+                        <mml:mn>9</mml:mn>
+                        <mml:mspace width="0.166667em"/>
+                        <mml:mi>q</mml:mi>
+                      </mml:mrow>
+                    </mml:semantics>
+                  </mml:math>
+                </inline-formula>
+              </td>
+            </tr>
+            <tr>
+              <td align="center" valign="middle">Esoteric Twist</td>
+              <td align="center" valign="middle">
+                <inline-formula>
+                  <mml:math id="mm33">
+                    <mml:semantics>
+                      <mml:mrow>
+                        <mml:mn>4</mml:mn>
+                        <mml:mspace width="0.166667em"/>
+                        <mml:mi>q</mml:mi>
+                        <mml:mo>+</mml:mo>
+                        <mml:mn>4</mml:mn>
+                        <mml:mspace width="0.166667em"/>
+                        <mml:mi>d</mml:mi>
+                        <mml:mo>+</mml:mo>
+                        <mml:mn>5</mml:mn>
+                      </mml:mrow>
+                    </mml:semantics>
+                  </mml:math>
+                </inline-formula>
+              </td>
+              <td align="center" valign="middle">
+                <inline-formula>
+                  <mml:math id="mm34">
+                    <mml:semantics>
+                      <mml:mrow>
+                        <mml:mn>8</mml:mn>
+                        <mml:mspace width="0.166667em"/>
+                        <mml:mi>q</mml:mi>
+                        <mml:mo>+</mml:mo>
+                        <mml:mn>1</mml:mn>
+                      </mml:mrow>
+                    </mml:semantics>
+                  </mml:math>
+                </inline-formula>
+              </td>
+            </tr>
+            <tr>
+              <td align="center" valign="middle">Esoteric Pull</td>
+              <td align="center" valign="middle">
+                <inline-formula>
+                  <mml:math id="mm35">
+                    <mml:semantics>
+                      <mml:mrow>
+                        <mml:mn>4</mml:mn>
+                        <mml:mspace width="0.166667em"/>
+                        <mml:mi>q</mml:mi>
+                        <mml:mo>+</mml:mo>
+                        <mml:mn>4</mml:mn>
+                        <mml:mspace width="0.166667em"/>
+                        <mml:mi>d</mml:mi>
+                        <mml:mo>+</mml:mo>
+                        <mml:mn>5</mml:mn>
+                      </mml:mrow>
+                    </mml:semantics>
+                  </mml:math>
+                </inline-formula>
+              </td>
+              <td align="center" valign="middle">
+                <inline-formula>
+                  <mml:math id="mm36">
+                    <mml:semantics>
+                      <mml:mrow>
+                        <mml:mn>8</mml:mn>
+                        <mml:mspace width="0.166667em"/>
+                        <mml:mi>q</mml:mi>
+                        <mml:mo>+</mml:mo>
+                        <mml:mn>1</mml:mn>
+                      </mml:mrow>
+                    </mml:semantics>
+                  </mml:math>
+                </inline-formula>
+              </td>
+            </tr>
+            <tr>
+              <td align="center" valign="middle" style="border-bottom:solid thin">Esoteric Push</td>
+              <td align="center" valign="middle" style="border-bottom:solid thin">
+                <inline-formula>
+                  <mml:math id="mm37">
+                    <mml:semantics>
+                      <mml:mrow>
+                        <mml:mn>4</mml:mn>
+                        <mml:mspace width="0.166667em"/>
+                        <mml:mi>q</mml:mi>
+                        <mml:mo>+</mml:mo>
+                        <mml:mn>4</mml:mn>
+                        <mml:mspace width="0.166667em"/>
+                        <mml:mi>d</mml:mi>
+                        <mml:mo>+</mml:mo>
+                        <mml:mn>5</mml:mn>
+                      </mml:mrow>
+                    </mml:semantics>
+                  </mml:math>
+                </inline-formula>
+              </td>
+              <td align="center" valign="middle" style="border-bottom:solid thin">
+                <inline-formula>
+                  <mml:math id="mm38">
+                    <mml:semantics>
+                      <mml:mrow>
+                        <mml:mn>8</mml:mn>
+                        <mml:mspace width="0.166667em"/>
+                        <mml:mi>q</mml:mi>
+                        <mml:mo>+</mml:mo>
+                        <mml:mn>1</mml:mn>
+                      </mml:mrow>
+                    </mml:semantics>
+                  </mml:math>
+                </inline-formula>
+              </td>
+            </tr>
+            <tr>
+              <td align="center" valign="middle">&#xA0;OSP   + FP32/16-bit</td>
+              <td align="center" valign="middle">
+                <inline-formula>
+                  <mml:math id="mm39">
+                    <mml:semantics>
+                      <mml:mrow>
+                        <mml:mn>4</mml:mn>
+                        <mml:mspace width="0.166667em"/>
+                        <mml:mi>q</mml:mi>
+                        <mml:mo>+</mml:mo>
+                        <mml:mn>4</mml:mn>
+                        <mml:mspace width="0.166667em"/>
+                        <mml:mi>d</mml:mi>
+                        <mml:mo>+</mml:mo>
+                        <mml:mn>5</mml:mn>
+                      </mml:mrow>
+                    </mml:semantics>
+                  </mml:math>
+                </inline-formula>
+              </td>
+              <td align="center" valign="middle">
+                <inline-formula>
+                  <mml:math id="mm40">
+                    <mml:semantics>
+                      <mml:mrow>
+                        <mml:mn>5</mml:mn>
+                        <mml:mspace width="0.166667em"/>
+                        <mml:mi>q</mml:mi>
+                      </mml:mrow>
+                    </mml:semantics>
+                  </mml:math>
+                </inline-formula>
+              </td>
+            </tr>
+            <tr>
+              <td align="center" valign="middle">AA    + FP32/16-bit</td>
+              <td align="center" valign="middle">
+                <inline-formula>
+                  <mml:math id="mm41">
+                    <mml:semantics>
+                      <mml:mrow>
+                        <mml:mn>2</mml:mn>
+                        <mml:mspace width="0.166667em"/>
+                        <mml:mi>q</mml:mi>
+                        <mml:mo>+</mml:mo>
+                        <mml:mn>4</mml:mn>
+                        <mml:mspace width="0.166667em"/>
+                        <mml:mi>d</mml:mi>
+                        <mml:mo>+</mml:mo>
+                        <mml:mn>5</mml:mn>
+                      </mml:mrow>
+                    </mml:semantics>
+                  </mml:math>
+                </inline-formula>
+              </td>
+              <td align="center" valign="middle">
+                <inline-formula>
+                  <mml:math id="mm42">
+                    <mml:semantics>
+                      <mml:mrow>
+                        <mml:mn>5</mml:mn>
+                        <mml:mspace width="0.166667em"/>
+                        <mml:mi>q</mml:mi>
+                      </mml:mrow>
+                    </mml:semantics>
+                  </mml:math>
+                </inline-formula>
+              </td>
+            </tr>
+            <tr>
+              <td align="center" valign="middle" style="border-bottom:solid thin">ET/EP + FP32/16-bit</td>
+              <td align="center" valign="middle" style="border-bottom:solid thin">
+                <inline-formula>
+                  <mml:math id="mm43">
+                    <mml:semantics>
+                      <mml:mrow>
+                        <mml:mn>2</mml:mn>
+                        <mml:mspace width="0.166667em"/>
+                        <mml:mi>q</mml:mi>
+                        <mml:mo>+</mml:mo>
+                        <mml:mn>4</mml:mn>
+                        <mml:mspace width="0.166667em"/>
+                        <mml:mi>d</mml:mi>
+                        <mml:mo>+</mml:mo>
+                        <mml:mn>5</mml:mn>
+                      </mml:mrow>
+                    </mml:semantics>
+                  </mml:math>
+                </inline-formula>
+              </td>
+              <td align="center" valign="middle" style="border-bottom:solid thin">
+                <inline-formula>
+                  <mml:math id="mm44">
+                    <mml:semantics>
+                      <mml:mrow>
+                        <mml:mn>4</mml:mn>
+                        <mml:mspace width="0.166667em"/>
+                        <mml:mi>q</mml:mi>
+                        <mml:mo>+</mml:mo>
+                        <mml:mn>1</mml:mn>
+                      </mml:mrow>
+                    </mml:semantics>
+                  </mml:math>
+                </inline-formula>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </table-wrap>
+    </sec>
+    <fn-group>
+      <fn>
+        <p><bold>Publisher&#x2019;s Note:</bold> MDPI stays neutral with regard to jurisdictional claims in published maps and institutional affiliations.</p>
+      </fn>
+    </fn-group>
+  </back>
+</article>
