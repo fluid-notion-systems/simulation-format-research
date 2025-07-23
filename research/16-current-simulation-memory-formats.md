@@ -10,7 +10,7 @@
 2. [Wasted Bits Deep Analysis](#2-wasted-bits-deep-analysis)
    - [Normalized Vector Storage](#normalized-vector-storage)
    - [Velocity Field Constraints](#velocity-field-constraints)
-3. [Fibonacci Sphere Deep Dive](#3-fibonacci-sphere-deep-dive) *👤
+3. [Fibonacci Sphere Deep Dive](#3-fibonacci-sphere-deep-dive) *🫖
    - [Mathematical Foundation](#mathematical-foundation)
    - [Index-to-Vector Mapping](#index-to-vector-mapping)
    - [Vector-to-Index Mapping](#vector-to-index-mapping-nearest-neighbor)
@@ -18,15 +18,15 @@
 4. [Quantization Formats and Technologies](#4-quantization-formats-and-technologies)
    - [Linear Quantization vs Floating Point](#linear-quantization-vs-floating-point)
    - [Related Quantization Technologies](#related-quantization-technologies)
-   - [Domain-Specific Quantization for Simulations](#domain-specific-quantization-for-simulations) *👤
+   - [Domain-Specific Quantization for Simulations](#domain-specific-quantization-for-simulations) *🫖
 5. [Alternative Sphere Point Distributions](#5-alternative-sphere-point-distributions)
    - [Beyond Fibonacci: Other Uniform Distributions](#beyond-fibonacci-other-uniform-distributions)
    - [Comparison of Sphere Distributions](#comparison-of-sphere-distributions)
-6. [Rotation Storage Using Fibonacci Sphere](#6-rotation-storage-using-fibonacci-sphere) *👤
+6. [Rotation Storage Using Fibonacci Sphere](#6-rotation-storage-using-fibonacci-sphere) *🫖
    - [Quaternion to Fibonacci Index](#quaternion-to-fibonacci-index)
    - [Advanced Rotation Compression](#advanced-rotation-compression)
 7. [Practical Implementation](#7-practical-implementation)
-   - [Velocity Field Compression](#velocity-field-compression) *👤🤖
+   - [Velocity Field Compression](#velocity-field-compression) *🫖 🤖
    - [Hierarchical Compression](#hierarchical-compression) *🤖
 8. [Memory Savings Analysis](#8-memory-savings-analysis)
 9. [GPU Implementation](#9-gpu-implementation)
@@ -74,7 +74,7 @@
 **Related Research Documents**:
 - [Markdown-for-Research: Interactive Scientific Documentation](../17-markdown-for-research.md) *🤖
 
-**Legend**: * = Novel or speculative approaches | 👤 = Nick's idea | 🤖 = Claude's idea
+**Legend**: * = Novel or speculative approaches | 🫖  = Nick's idea | 🤖 = Claude's idea
 
 ## Overview
 
@@ -2793,7 +2793,7 @@ struct AdaptiveCurveLibrary {
 
 The Esoteric Gradient approach represents a paradigm shift from storing raw data to storing **references to mathematical structures**, leveraging the inherent patterns in fluid dynamics for extreme compression ratios while maintaining physical accuracy. The curve-based encoding particularly excels by matching the natural tendency of fluids to follow smooth, predictable paths.
 
-#### Octant-Based Symmetrical Direction Encoding 🤖👤
+#### Octant-Based Symmetrical Direction Encoding 🤖🫖
 
 *A novel approach where the first 3 bits encode x,y,z signs, creating a natural octant-based indexing system with 8-fold symmetry.*
 
@@ -2804,19 +2804,19 @@ The Esoteric Gradient approach represents a paradigm shift from storing raw data
 // [sx][sy][sz][remaining bits for intra-octant position]
 //  |   |   |
 //  |   |   +-- z sign (0=negative, 1=positive)
-//  |   +------ y sign (0=negative, 1=positive)  
+//  |   +------ y sign (0=negative, 1=positive)
 //  +---------- x sign (0=negative, 1=positive)
 
 struct OctantDirectionEncoder {
     // Only store canonical octant (all positive)
     canonical_directions: Vec<[f32; 3]>,  // 8x memory reduction!
-    
+
     fn decode(&self, index: u16) -> Vec3 {
         let octant = (index >> 13) & 0b111;
         let intra_idx = (index & 0x1FFF) as usize;
-        
+
         let canonical = self.canonical_directions[intra_idx];
-        
+
         // Apply sign flips based on octant - THE GRADIENT IS IN THE INDEX!
         Vec3 {
             x: if octant & 0b100 != 0 { canonical.x } else { -canonical.x },
@@ -2834,7 +2834,7 @@ The octant structure isn't just a storage optimization - it aligns with fundamen
 ```rust
 fn extract_implicit_gradient(index: u16) -> Vec3 {
     let octant = (index >> 13) & 0b111;
-    
+
     // The sign bits ARE the gradient direction!
     Vec3 {
         x: if octant & 0b100 != 0 { 1.0 } else { -1.0 },
@@ -2867,10 +2867,10 @@ fn batch_decode_octant_directions(indices: &[u16; 8]) -> [Vec3; 8] {
     // Extract octants in parallel - 3 bit operations total!
     let octants = _mm512_srai_epi16(indices, 13);
     let octant_masks = _mm512_and_epi16(octants, _mm512_set1_epi16(0b111));
-    
+
     // Load canonical directions
     let canonical = load_canonical_batch(indices & 0x1FFF);
-    
+
     // Apply sign flips using blend operations
     apply_octant_signs_simd(canonical, octant_masks)
 }
@@ -2886,17 +2886,17 @@ fn batch_decode_octant_directions(indices: &[u16; 8]) -> [Vec3; 8] {
 
 struct HierarchicalOctantEncoder {
     levels: Vec<OctantLevel>,
-    
+
     fn encode_adaptive(&self, dir: Vec3, precision: u8) -> u32 {
         let mut index = 0u32;
         let mut current_dir = dir;
-        
+
         for level in 0..precision {
             let octant = compute_octant(current_dir);
             index = (index << 3) | octant;
             current_dir = to_canonical_octant(current_dir);
         }
-        
+
         index
     }
 }
@@ -2909,17 +2909,17 @@ struct HierarchicalOctantEncoder {
 struct OctantPatternEncoder {
     octant_encoder: OctantDirectionEncoder,
     pattern_library: EsotericGradientLibrary,
-    
+
     fn encode_field(&self, field: &VelocityField) -> CompressedField {
         // First: Extract dominant flow octant
         let dominant_octant = field.compute_dominant_octant();
-        
+
         // Second: Transform to canonical octant
         let canonical_field = field.transform_to_octant(dominant_octant);
-        
+
         // Third: Apply pattern matching in canonical space
         let patterns = self.pattern_library.match_patterns(&canonical_field);
-        
+
         CompressedField {
             dominant_octant,
             octant_patterns: patterns,
@@ -3655,3 +3655,5 @@ interface MarkdownForResearch {
 *The AI eagerly awaits the human's perspective on this collaborative journey and the broader implications for AI-assisted research in computational physics and beyond...*
 
 Nick: Shore shore, I'll get to it at some point, near shore, far shore.
+
+![Yzma transformation](../images/loonig.jpeg)
