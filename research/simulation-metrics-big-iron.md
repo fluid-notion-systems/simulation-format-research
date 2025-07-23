@@ -25,6 +25,7 @@ This document estimates the computational capabilities and domain coverage for f
 ### NVIDIA Data Center GPUs
 - **A100 (80GB)**: 80GB HBM2e, 2.04 TB/s bandwidth
 - **H100 (80GB)**: 80GB HBM3, 3.35 TB/s bandwidth
+- **H200 (141GB)**: 141GB HBM3e, 4.8 TB/s bandwidth
 - **B200 (192GB)**: 192GB HBM3e, 8 TB/s bandwidth (Blackwell)
 
 ### AMD GPUs
@@ -35,6 +36,7 @@ This document estimates the computational capabilities and domain coverage for f
 - **Die Size**: 46,225 mm² (57x larger than H100)
 - **Transistors**: 4 trillion (50x more than H100)
 - **External Memory**: Up to 1.2 PB via MemoryX units
+- **MemoryX Bandwidth**: Not publicly disclosed (streaming architecture optimized for weight updates)
 
 ## Single GPU Configurations
 
@@ -98,6 +100,21 @@ This document estimates the computational capabilities and domain coverage for f
 | 1cm | 141m × 141m × 8m | High-detail breaking | 1.3 hours | 7.5 hours |
 | 5mm | 100m × 100m × 8m | Research quality | 5 hours | 30 hours |
 
+### 1x H200 (141GB)
+**Memory-Limited Domain Sizes:**
+- @ 200 bytes/node: 705M nodes
+- @ 50 bytes/node: 2.82B nodes
+- @ 14.5 bytes/node: 9.72B nodes
+
+**Physical Domains (50 bytes/node):**
+| Resolution | Domain Size | Notes | 10s Sim Time | 1min Sim Time |
+|------------|-------------|-------|--------------|---------------|
+| 10cm | 594m × 594m × 8m | Large reef section | 39 sec | 3.9 min |
+| 5cm | 420m × 420m × 8m | Full surf break | 2.8 min | 16.5 min |
+| 2cm | 265m × 265m × 8m | Detailed surf break | 13 min | 1.3 hours |
+| 1cm | 188m × 188m × 8m | Ultra-detailed | 42 min | 4.2 hours |
+| 5mm | 133m × 133m × 8m | Maximum detail | 2.8 hours | 16.5 hours |
+
 ### 1x B200 (192GB)
 **Memory-Limited Domain Sizes:**
 - @ 200 bytes/node: 960M nodes
@@ -160,6 +177,13 @@ This document estimates the computational capabilities and domain coverage for f
 | 2cm | 283m × 283m × 8m | Detailed region | 11 min | 1.1 hours |
 | 1cm | 200m × 200m × 8m | High-res section | 42 min | 4.2 hours |
 
+**2x H200 (282GB total)**
+| Resolution | Domain Size | Notes | 10s Sim Time | 1min Sim Time |
+|------------|-------------|-------|--------------|---------------|
+| 5cm | 594m × 594m × 8m | Enterprise scale | 1.5 min | 9 min |
+| 2cm | 375m × 375m × 8m | Detailed region | 7.3 min | 44 min |
+| 1cm | 265m × 265m × 8m | High-res section | 28 min | 2.8 hours |
+
 **2x B200 (384GB total)**
 | Resolution | Domain Size | Notes | 10s Sim Time | 1min Sim Time |
 |------------|-------------|-------|--------------|---------------|
@@ -196,6 +220,13 @@ This document estimates the computational capabilities and domain coverage for f
 | 5cm | 632m × 632m × 8m | Enterprise scale | 1.3 min | 7.8 min |
 | 2cm | 400m × 400m × 8m | Detailed complex | 6.3 min | 38 min |
 | 1cm | 283m × 283m × 8m | Research grade | 24 min | 2.4 hours |
+
+**4x H200 (564GB total)**
+| Resolution | Domain Size | Notes | 10s Sim Time | 1min Sim Time |
+|------------|-------------|-------|--------------|---------------|
+| 5cm | 840m × 840m × 8m | Large scale | 52 sec | 5.2 min |
+| 2cm | 530m × 530m × 8m | Detailed complex | 4.1 min | 24.5 min |
+| 1cm | 375m × 375m × 8m | Research grade | 15.5 min | 1.6 hours |
 
 **4x B200 (768GB total)**
 | Resolution | Domain Size | Notes | 10s Sim Time | 1min Sim Time |
@@ -235,6 +266,14 @@ This document estimates the computational capabilities and domain coverage for f
 | 2cm | 565m × 565m × 8m | Production quality | 3.5 min | 21 min |
 | 1cm | 400m × 400m × 8m | High-end research | 13 min | 1.3 hours |
 
+**8x H200 (1.128TB total)**
+| Resolution | Domain Size | Notes | 10s Sim Time | 1min Sim Time |
+|------------|-------------|-------|--------------|---------------|
+| 10cm | 1189m × 1189m × 8m | Regional scale | 24 sec | 2.4 min |
+| 5cm | 1189m × 1189m × 8m | Enterprise reef | 29 sec | 2.9 min |
+| 2cm | 750m × 750m × 8m | Production quality | 2.3 min | 14 min |
+| 1cm | 531m × 531m × 8m | High-end research | 8.7 min | 52 min |
+
 **8x B200 (1.5TB total)**
 | Resolution | Domain Size | Notes | 10s Sim Time | 1min Sim Time |
 |------------|-------------|-------|--------------|---------------|
@@ -246,6 +285,15 @@ This document estimates the computational capabilities and domain coverage for f
 | 1mm | 138m × 138m × 8m | Extreme detail | 53 hours | 13 days |
 
 ### 16x GPU Systems
+
+**16x H200 (2.256TB total)**
+| Resolution | Domain Size | Notes | 10s Sim Time | 1min Sim Time |
+|------------|-------------|-------|--------------|---------------|
+| 10cm | 1681m × 1681m × 8m | Full coastal | 17 sec | 1.7 min |
+| 5cm | 1681m × 1681m × 8m | Major reef system | 20 sec | 2 min |
+| 2cm | 1061m × 1061m × 8m | Detailed coast | 1.6 min | 9.8 min |
+| 1cm | 750m × 750m × 8m | High-res system | 6.1 min | 37 min |
+| 5mm | 531m × 531m × 8m | Research grade | 24 min | 2.4 hours |
 
 **16x B200 (3TB total)**
 | Resolution | Domain Size | Notes | 10s Sim Time | 1min Sim Time |
@@ -264,6 +312,7 @@ This document estimates the computational capabilities and domain coverage for f
 - RTX 5090: 900-1200 MLUPS
 - A100: 1000-1200 MLUPS
 - H100: 1500-2000 MLUPS
+- H200: 1800-2400 MLUPS
 - B200: 2500-3500 MLUPS
 - MI300X: 2000-2800 MLUPS
 
@@ -313,6 +362,7 @@ For 1 second of physical time at different resolutions:
 - RTX 5090: $2,500 purchase (or $0.80/hour amortized)
 - A100: $5-8/hour per GPU (cloud)
 - H100: $8-12/hour per GPU (cloud)
+- H200: $10-15/hour per GPU (cloud)
 - B200: $15-20/hour per GPU (projected)
 - MI300X: $6-10/hour per GPU (cloud)
 
@@ -323,6 +373,7 @@ For 1 second of physical time at different resolutions:
 - 2x RTX 5090: ~$6 (8 hours × $0.80 amortized)
 - 8x A100: ~$320 (8 hours × 8 GPUs × $5)
 - 8x H100: ~$768 (8 hours × 8 GPUs × $12)
+- 8x H200: ~$720 (6 hours × 8 GPUs × $15)
 - 4x MI300X: ~$240 (6 hours × 4 GPUs × $10)
 - 4x B200: ~$240 (3 hours × 4 GPUs × $20)
 
@@ -336,18 +387,18 @@ For 1 second of physical time at different resolutions:
 
 ### For Surf Reef Design (Production)
 - **Minimum**: 4x A100 or 2x H100
-- **Recommended**: 8x H100 or 4x MI300X
-- **Ideal**: 16x B200
+- **Recommended**: 8x H200 or 4x MI300X
+- **Ideal**: 16x B200 or 16x H200
 - **Resolution**: 2-5cm for design, 1cm for validation
 
 ### For Research
 - **Minimum**: 1x H100 or MI300X
-- **Recommended**: 4x B200 or 4x MI300X
+- **Recommended**: 4x H200 or 4x B200
 - **Resolution**: 5mm-1cm for detailed physics
 
 ### For Real-time Preview
 - **Budget**: 1x RTX 5090
-- **Professional**: 1x H100 or B200
+- **Professional**: 1x H100 or H200
 - **Resolution**: 5-10cm
 - **Domain**: 100×100×8m sections
 
@@ -402,6 +453,8 @@ The Cerebras WSE-3 represents a fundamentally different approach to compute acce
 - Weight streaming architecture allows external memory
 - Could stream distribution functions from MemoryX
 - Keep active working set in 44GB SRAM
+- Note: MemoryX bandwidth not publicly specified, but designed for AI model weight streaming
+- For LBM, would need custom streaming pattern implementation
 
 ### Physical Domain Estimates
 
@@ -425,9 +478,10 @@ The Cerebras WSE-3 represents a fundamentally different approach to compute acce
 ### Performance Projections
 
 **Theoretical Peak:**
-- 105,000 MLUPS (based on bandwidth)
-- Reality: 20,000-50,000 MLUPS expected
-- 10-50x faster than GPU clusters
+- 105,000 MLUPS (based on on-chip SRAM bandwidth of 21 PB/s)
+- With MemoryX: Performance limited by external streaming bandwidth (undisclosed)
+- Reality: 20,000-50,000 MLUPS expected for on-chip scenarios
+- 10-50x faster than GPU clusters for problems that fit in SRAM
 
 **Time to Solution (1 second physical):**
 | Resolution | Domain | Nodes | Time |
@@ -505,11 +559,12 @@ The Cerebras WSE-3 represents a fundamentally different approach to compute acce
 
 1. **Consumer GPUs** (4090/5090): Excellent entry point for prototyping and small-scale work
 2. **Current Generation** (A100/H100): Suitable for 2-5cm production work
-3. **Blackwell** (B200/5090): Enables 1cm production, 1-5mm research
-4. **Cerebras** (WSE-3): Revolutionary for fixed-domain, bandwidth-limited simulations
-5. **Multi-GPU**: Essential for reef-scale simulations with flexibility
-6. **AMD Alternative**: MI300X offers compelling price/performance
-7. **Cost-Performance**: RTX 5090 offers best value for small teams, H100 for production
+3. **Enhanced Memory** (H200): Bridge between H100 and B200, excellent price/performance
+4. **Blackwell** (B200/5090): Enables 1cm production, 1-5mm research
+5. **Cerebras** (WSE-3): Revolutionary for fixed-domain, bandwidth-limited simulations
+6. **Multi-GPU**: Essential for reef-scale simulations with flexibility
+7. **AMD Alternative**: MI300X offers compelling price/performance
+8. **Cost-Performance**: RTX 5090 for small teams, H200 for production, B200 for cutting-edge
 
 The combination of modern GPUs and optimized software will enable unprecedented simulation fidelity for artificial reef design and surf dynamics modeling. Cerebras represents a paradigm shift for specific use cases where its architecture aligns with problem requirements.
 
