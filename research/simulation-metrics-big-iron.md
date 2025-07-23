@@ -18,14 +18,16 @@ This document estimates the computational capabilities and domain coverage for f
 
 ## GPU Specifications
 
-### NVIDIA GPUs
-- **A200 (40GB)**: 40GB HBM2e, 1.56 TB/s bandwidth
+### NVIDIA Consumer GPUs
+- **RTX 4090**: 24GB GDDR6X, 1.01 TB/s bandwidth, 450W TDP
+- **RTX 5090**: 32GB GDDR7, 1.79 TB/s bandwidth, 575W TDP (Blackwell)
+
+### NVIDIA Data Center GPUs
 - **A100 (80GB)**: 80GB HBM2e, 2.04 TB/s bandwidth
 - **H100 (80GB)**: 80GB HBM3, 3.35 TB/s bandwidth
 - **B200 (192GB)**: 192GB HBM3e, 8 TB/s bandwidth (Blackwell)
 
 ### AMD GPUs
-- **MI250X**: 128GB HBM2e, 3.28 TB/s bandwidth
 - **MI300X**: 192GB HBM3, 5.3 TB/s bandwidth
 
 ### Cerebras Wafer-Scale Engine
@@ -36,20 +38,65 @@ This document estimates the computational capabilities and domain coverage for f
 
 ## Single GPU Configurations
 
-### 1x A200 (40GB)
+### 1x RTX 4090 (24GB)
 **Memory-Limited Domain Sizes:**
-- @ 200 bytes/node: 200M nodes
-- @ 50 bytes/node: 800M nodes
-- @ 14.5 bytes/node: 2.76B nodes
+- @ 200 bytes/node: 120M nodes
+- @ 50 bytes/node: 480M nodes
+- @ 14.5 bytes/node: 1.65B nodes
 
 **Physical Domains (50 bytes/node):**
-| Resolution | Domain Size | Notes |
-|------------|-------------|-------|
-| 10cm | 200m × 200m × 20m | Coarse surf dynamics |
-| 5cm | 120m × 120m × 15m | Basic wave resolution |
-| 2cm | 60m × 60m × 10m | Detailed waves |
-| 1cm | 40m × 40m × 5m | High-detail breaking |
-| 5mm | 25m × 25m × 3m | Research quality |
+| Resolution | Domain Size | Notes | 10s Sim Time | 1min Sim Time |
+|------------|-------------|-------|--------------|---------------|
+| 10cm | 245m × 245m × 8m | Coarse surf dynamics | 2 min | 12 min |
+| 5cm | 173m × 173m × 8m | Basic wave resolution | 8 min | 48 min |
+| 2cm | 109m × 109m × 8m | Detailed waves | 39 min | 3.9 hours |
+| 1cm | 77m × 77m × 8m | High-detail breaking | 2.5 hours | 15 hours |
+| 5mm | 55m × 55m × 8m | Research quality | 10 hours | 60 hours |
+
+### 1x RTX 5090 (32GB)
+**Memory-Limited Domain Sizes:**
+- @ 200 bytes/node: 160M nodes
+- @ 50 bytes/node: 640M nodes
+- @ 14.5 bytes/node: 2.2B nodes
+
+**Physical Domains (50 bytes/node):**
+| Resolution | Domain Size | Notes | 10s Sim Time | 1min Sim Time |
+|------------|-------------|-------|--------------|---------------|
+| 10cm | 283m × 283m × 8m | Coarse surf dynamics | 1.3 min | 8 min |
+| 5cm | 200m × 200m × 8m | Basic wave resolution | 5.6 min | 33 min |
+| 2cm | 126m × 126m × 8m | Detailed waves | 26 min | 2.6 hours |
+| 1cm | 89m × 89m × 8m | High-detail breaking | 1.6 hours | 10 hours |
+| 5mm | 63m × 63m × 8m | Research quality | 6.6 hours | 40 hours |
+
+### 1x A100 (80GB)
+**Memory-Limited Domain Sizes:**
+- @ 200 bytes/node: 400M nodes
+- @ 50 bytes/node: 1.6B nodes
+- @ 14.5 bytes/node: 5.52B nodes
+
+**Physical Domains (50 bytes/node):**
+| Resolution | Domain Size | Notes | 10s Sim Time | 1min Sim Time |
+|------------|-------------|-------|--------------|---------------|
+| 10cm | 447m × 447m × 8m | Coarse surf dynamics | 1.7 min | 10 min |
+| 5cm | 316m × 316m × 8m | Basic wave resolution | 7 min | 42 min |
+| 2cm | 200m × 200m × 8m | Detailed waves | 33 min | 3.3 hours |
+| 1cm | 141m × 141m × 8m | High-detail breaking | 2.1 hours | 12.5 hours |
+| 5mm | 100m × 100m × 8m | Research quality | 8.3 hours | 50 hours |
+
+### 1x H100 (80GB)
+**Memory-Limited Domain Sizes:**
+- @ 200 bytes/node: 400M nodes
+- @ 50 bytes/node: 1.6B nodes
+- @ 14.5 bytes/node: 5.52B nodes
+
+**Physical Domains (50 bytes/node):**
+| Resolution | Domain Size | Notes | 10s Sim Time | 1min Sim Time |
+|------------|-------------|-------|--------------|---------------|
+| 10cm | 447m × 447m × 8m | Coarse surf dynamics | 1 min | 6 min |
+| 5cm | 316m × 316m × 8m | Basic wave resolution | 4.2 min | 25 min |
+| 2cm | 200m × 200m × 8m | Detailed waves | 20 min | 2 hours |
+| 1cm | 141m × 141m × 8m | High-detail breaking | 1.3 hours | 7.5 hours |
+| 5mm | 100m × 100m × 8m | Research quality | 5 hours | 30 hours |
 
 ### 1x B200 (192GB)
 **Memory-Limited Domain Sizes:**
@@ -58,88 +105,163 @@ This document estimates the computational capabilities and domain coverage for f
 - @ 14.5 bytes/node: 13.2B nodes
 
 **Physical Domains (50 bytes/node):**
-| Resolution | Domain Size | Notes |
-|------------|-------------|-------|
-| 10cm | 340m × 340m × 35m | Large reef section |
-| 5cm | 220m × 220m × 25m | Full surf break |
-| 2cm | 120m × 120m × 15m | Detailed surf break |
-| 1cm | 80m × 80m × 10m | Ultra-detailed |
-| 5mm | 50m × 50m × 6m | Maximum detail |
+| Resolution | Domain Size | Notes | 10s Sim Time | 1min Sim Time |
+|------------|-------------|-------|--------------|---------------|
+| 10cm | 693m × 693m × 8m | Large reef section | 48 sec | 4.8 min |
+| 5cm | 490m × 490m × 8m | Full surf break | 3.2 min | 19 min |
+| 2cm | 309m × 309m × 8m | Detailed surf break | 15 min | 1.5 hours |
+| 1cm | 219m × 219m × 8m | Ultra-detailed | 48 min | 4.8 hours |
+| 5mm | 155m × 155m × 8m | Maximum detail | 3.2 hours | 19 hours |
 
 ### 1x MI300X (192GB)
-Similar to B200 in memory capacity, slightly lower bandwidth:
-- Performance: ~90% of B200 due to bandwidth difference
-- Same domain sizes as B200
-- Better price/performance ratio
+**Memory-Limited Domain Sizes:**
+- @ 200 bytes/node: 960M nodes
+- @ 50 bytes/node: 3.84B nodes
+- @ 14.5 bytes/node: 13.2B nodes
+
+**Physical Domains (50 bytes/node):**
+| Resolution | Domain Size | Notes | 10s Sim Time | 1min Sim Time |
+|------------|-------------|-------|--------------|---------------|
+| 10cm | 693m × 693m × 8m | Large reef section | 53 sec | 5.3 min |
+| 5cm | 490m × 490m × 8m | Full surf break | 3.6 min | 21 min |
+| 2cm | 309m × 309m × 8m | Detailed surf break | 17 min | 1.7 hours |
+| 1cm | 219m × 219m × 8m | Ultra-detailed | 53 min | 5.3 hours |
+| 5mm | 155m × 155m × 8m | Maximum detail | 3.5 hours | 21 hours |
 
 ## Multi-GPU Configurations
 
 ### 2x GPU Systems
 
-**2x A200 (80GB total)**
-- Domain: 2x single GPU with 90% efficiency
-- Communication overhead for boundaries
-- Best for long, thin domains
+**2x RTX 4090 (48GB total)**
+| Resolution | Domain Size | Notes | 10s Sim Time | 1min Sim Time |
+|------------|-------------|-------|--------------|---------------|
+| 5cm | 245m × 245m × 8m | Desktop workstation | 4.4 min | 27 min |
+| 2cm | 155m × 155m × 8m | High-detail local | 21 min | 2.1 hours |
+| 1cm | 109m × 109m × 8m | Research on budget | 1.4 hours | 8.4 hours |
+
+**2x RTX 5090 (64GB total)**
+| Resolution | Domain Size | Notes | 10s Sim Time | 1min Sim Time |
+|------------|-------------|-------|--------------|---------------|
+| 5cm | 283m × 283m × 8m | Next-gen desktop | 3.1 min | 18.5 min |
+| 2cm | 178m × 178m × 8m | High-detail local | 14.5 min | 1.5 hours |
+| 1cm | 126m × 126m × 8m | Desktop research | 55 min | 5.5 hours |
+
+**2x A100 (160GB total)**
+| Resolution | Domain Size | Notes | 10s Sim Time | 1min Sim Time |
+|------------|-------------|-------|--------------|---------------|
+| 5cm | 447m × 447m × 8m | Professional scale | 3.9 min | 23 min |
+| 2cm | 283m × 283m × 8m | Detailed region | 18.5 min | 1.8 hours |
+| 1cm | 200m × 200m × 8m | High-res section | 1.2 hours | 7 hours |
+
+**2x H100 (160GB total)**
+| Resolution | Domain Size | Notes | 10s Sim Time | 1min Sim Time |
+|------------|-------------|-------|--------------|---------------|
+| 5cm | 447m × 447m × 8m | High-performance | 2.3 min | 14 min |
+| 2cm | 283m × 283m × 8m | Detailed region | 11 min | 1.1 hours |
+| 1cm | 200m × 200m × 8m | High-res section | 42 min | 4.2 hours |
 
 **2x B200 (384GB total)**
-| Resolution | Domain Size | Notes |
-|------------|-------------|-------|
-| 5cm | 300m × 300m × 35m | Regional scale |
-| 2cm | 170m × 170m × 20m | High-detail region |
-| 1cm | 110m × 110m × 14m | Research grade |
+| Resolution | Domain Size | Notes | 10s Sim Time | 1min Sim Time |
+|------------|-------------|-------|--------------|---------------|
+| 5cm | 693m × 693m × 8m | Regional scale | 1.4 min | 8.3 min |
+| 2cm | 437m × 437m × 8m | High-detail region | 6.7 min | 40 min |
+| 1cm | 309m × 309m × 8m | Research grade | 26 min | 2.6 hours |
 
 ### 4x GPU Systems
 
-**4x A200 (160GB total)**
-| Resolution | Domain Size | Notes |
-|------------|-------------|-------|
-| 5cm | 200m × 200m × 25m | Multi-break system |
-| 2cm | 100m × 100m × 15m | Detailed reef |
-| 1cm | 65m × 65m × 8m | High-res section |
+**4x RTX 4090 (96GB total)**
+| Resolution | Domain Size | Notes | 10s Sim Time | 1min Sim Time |
+|------------|-------------|-------|--------------|---------------|
+| 5cm | 346m × 346m × 8m | Enthusiast setup | 2.5 min | 15 min |
+| 2cm | 219m × 219m × 8m | Detailed reef | 12 min | 1.2 hours |
+| 1cm | 155m × 155m × 8m | High-res section | 47 min | 4.7 hours |
+
+**4x RTX 5090 (128GB total)**
+| Resolution | Domain Size | Notes | 10s Sim Time | 1min Sim Time |
+|------------|-------------|-------|--------------|---------------|
+| 5cm | 400m × 400m × 8m | Next-gen enthusiast | 1.7 min | 10.5 min |
+| 2cm | 252m × 252m × 8m | Detailed reef | 8.3 min | 50 min |
+| 1cm | 178m × 178m × 8m | High-res section | 31 min | 3.1 hours |
+
+**4x A100 (320GB total)**
+| Resolution | Domain Size | Notes | 10s Sim Time | 1min Sim Time |
+|------------|-------------|-------|--------------|---------------|
+| 5cm | 632m × 632m × 8m | Multi-break system | 2.2 min | 13 min |
+| 2cm | 400m × 400m × 8m | Detailed reef | 10.5 min | 1 hour |
+| 1cm | 283m × 283m × 8m | High-res section | 39 min | 3.9 hours |
+
+**4x H100 (320GB total)**
+| Resolution | Domain Size | Notes | 10s Sim Time | 1min Sim Time |
+|------------|-------------|-------|--------------|---------------|
+| 5cm | 632m × 632m × 8m | Enterprise scale | 1.3 min | 7.8 min |
+| 2cm | 400m × 400m × 8m | Detailed complex | 6.3 min | 38 min |
+| 1cm | 283m × 283m × 8m | Research grade | 24 min | 2.4 hours |
 
 **4x B200 (768GB total)**
-| Resolution | Domain Size | Notes |
-|------------|-------------|-------|
-| 5cm | 400m × 400m × 50m | Large reef complex |
-| 2cm | 240m × 240m × 30m | Detailed complex |
-| 1cm | 160m × 160m × 20m | Ultra-detailed |
-| 5mm | 100m × 100m × 12m | Maximum quality |
+| Resolution | Domain Size | Notes | 10s Sim Time | 1min Sim Time |
+|------------|-------------|-------|--------------|---------------|
+| 5cm | 980m × 980m × 8m | Large reef complex | 47 sec | 4.7 min |
+| 2cm | 618m × 618m × 8m | Detailed complex | 3.8 min | 23 min |
+| 1cm | 437m × 437m × 8m | Ultra-detailed | 14.5 min | 1.5 hours |
+| 5mm | 309m × 309m × 8m | Maximum quality | 58 min | 5.8 hours |
 
 ### 8x GPU Systems
 
+**8x RTX 4090 (192GB total)** *(Requires multiple systems)*
+| Resolution | Domain Size | Notes | 10s Sim Time | 1min Sim Time |
+|------------|-------------|-------|--------------|---------------|
+| 5cm | 490m × 490m × 8m | Distributed setup | 1.4 min | 8.5 min |
+| 2cm | 309m × 309m × 8m | Multi-PC cluster | 6.7 min | 40 min |
+| 1cm | 219m × 219m × 8m | Budget cluster | 27 min | 2.7 hours |
+
+**8x RTX 5090 (256GB total)** *(Requires multiple systems)*
+| Resolution | Domain Size | Notes | 10s Sim Time | 1min Sim Time |
+|------------|-------------|-------|--------------|---------------|
+| 5cm | 565m × 565m × 8m | Next-gen cluster | 1 min | 6 min |
+| 2cm | 357m × 357m × 8m | Distributed compute | 4.7 min | 28 min |
+| 1cm | 252m × 252m × 8m | Multi-system | 18 min | 1.8 hours |
+
 **8x A100 (640GB total)**
-| Resolution | Domain Size | Notes |
-|------------|-------------|-------|
-| 5cm | 350m × 350m × 40m | Full reef system |
-| 2cm | 200m × 200m × 25m | High detail reef |
-| 1cm | 130m × 130m × 16m | Research quality |
+| Resolution | Domain Size | Notes | 10s Sim Time | 1min Sim Time |
+|------------|-------------|-------|--------------|---------------|
+| 5cm | 894m × 894m × 8m | Full reef system | 1.2 min | 7.5 min |
+| 2cm | 565m × 565m × 8m | High detail reef | 6 min | 36 min |
+| 1cm | 400m × 400m × 8m | Research quality | 22 min | 2.2 hours |
+
+**8x H100 (640GB total)**
+| Resolution | Domain Size | Notes | 10s Sim Time | 1min Sim Time |
+|------------|-------------|-------|--------------|---------------|
+| 5cm | 894m × 894m × 8m | Enterprise reef | 44 sec | 4.4 min |
+| 2cm | 565m × 565m × 8m | Production quality | 3.5 min | 21 min |
+| 1cm | 400m × 400m × 8m | High-end research | 13 min | 1.3 hours |
 
 **8x B200 (1.5TB total)**
-| Resolution | Domain Size | Notes |
-|------------|-------------|-------|
-| 10cm | 700m × 700m × 70m | Coastal region |
-| 5cm | 500m × 500m × 60m | Large reef area |
-| 2cm | 340m × 340m × 40m | Detailed region |
-| 1cm | 220m × 220m × 28m | High-res area |
-| 5mm | 140m × 140m × 17m | Ultra-detailed |
-| 1mm | 50m × 50m × 5m | Extreme detail |
+| Resolution | Domain Size | Notes | 10s Sim Time | 1min Sim Time |
+|------------|-------------|-------|--------------|---------------|
+| 10cm | 1374m × 1374m × 8m | Coastal region | 8 sec | 47 sec |
+| 5cm | 1386m × 1386m × 8m | Large reef area | 28 sec | 2.8 min |
+| 2cm | 874m × 874m × 8m | Detailed region | 2.1 min | 12.5 min |
+| 1cm | 618m × 618m × 8m | High-res area | 8 min | 48 min |
+| 5mm | 437m × 437m × 8m | Ultra-detailed | 32 min | 3.2 hours |
+| 1mm | 138m × 138m × 8m | Extreme detail | 53 hours | 13 days |
 
 ### 16x GPU Systems
 
 **16x B200 (3TB total)**
-| Resolution | Domain Size | Notes |
-|------------|-------------|-------|
-| 10cm | 1km × 1km × 100m | Full coastal area |
-| 5cm | 700m × 700m × 85m | Major reef system |
-| 2cm | 480m × 480m × 55m | Detailed coast |
-| 1cm | 310m × 310m × 40m | High-res system |
-| 5mm | 200m × 200m × 24m | Research grade |
-| 1mm | 70m × 70m × 7m | Ultimate detail |
+| Resolution | Domain Size | Notes | 10s Sim Time | 1min Sim Time |
+|------------|-------------|-------|--------------|---------------|
+| 10cm | 1943m × 1943m × 8m | Full coastal area | 5.7 sec | 34 sec |
+| 5cm | 1960m × 1960m × 8m | Major reef system | 20 sec | 2 min |
+| 2cm | 1237m × 1237m × 8m | Detailed coast | 1.5 min | 9 min |
+| 1cm | 874m × 874m × 8m | High-res system | 5.8 min | 35 min |
+| 5mm | 619m × 619m × 8m | Research grade | 23 min | 2.3 hours |
+| 1mm | 196m × 196m × 8m | Ultimate detail | 38 hours | 9.5 days |
 
 ## Computational Performance Estimates
 
 ### Single GPU MLUPS (Million Lattice Updates Per Second)
-- A200: 800-1000 MLUPS
+- RTX 4090: 600-800 MLUPS
+- RTX 5090: 900-1200 MLUPS
 - A100: 1000-1200 MLUPS
 - H100: 1500-2000 MLUPS
 - B200: 2500-3500 MLUPS
@@ -168,9 +290,9 @@ For 1 second of physical time at different resolutions:
 **8x B200 System (20,000 MLUPS effective)**
 | Resolution | Domain | Nodes | Time |
 |------------|--------|-------|------|
-| 5cm | 500×500×60m | 3B | 2.5 hours |
-| 2cm | 340×340×40m | 5.8B | 12 hours |
-| 1cm | 220×220×28m | 3.4B | 47 hours |
+| 5cm | 1386×1386×8m | 30.7B | 30.7 hours |
+| 2cm | 874×874×8m | 30.6B | 153 hours |
+| 1cm | 618×618×8m | 30.5B | 305 hours |
 
 ## Comparison with Salvatore
 
@@ -186,35 +308,48 @@ For 1 second of physical time at different resolutions:
 
 ## Cost-Performance Analysis
 
-### Cloud Costs (Estimated)
-- A100: $5-8/hour per GPU
-- H100: $8-12/hour per GPU
+### Cloud/Hardware Costs (Estimated)
+- RTX 4090: $1,600 purchase (or $0.50/hour amortized)
+- RTX 5090: $2,500 purchase (or $0.80/hour amortized)
+- A100: $5-8/hour per GPU (cloud)
+- H100: $8-12/hour per GPU (cloud)
 - B200: $15-20/hour per GPU (projected)
+- MI300X: $6-10/hour per GPU (cloud)
 
 ### Cost per Simulation
 **Example: 10 seconds of 5cm resolution surf break**
-- Domain: 200×200×25m
+- Domain: 200×200×8m
+- 2x RTX 4090: ~$4 (8 hours × $0.50 amortized)
+- 2x RTX 5090: ~$6 (8 hours × $0.80 amortized)
 - 8x A100: ~$320 (8 hours × 8 GPUs × $5)
+- 8x H100: ~$768 (8 hours × 8 GPUs × $12)
+- 4x MI300X: ~$240 (6 hours × 4 GPUs × $10)
 - 4x B200: ~$240 (3 hours × 4 GPUs × $20)
-- 16x B200: ~$160 (30 min × 16 GPUs × $20)
 
 ## Recommendations
 
+### For Hobbyists/Small Studios
+- **Minimum**: 1x RTX 4090
+- **Recommended**: 2x RTX 5090
+- **Resolution**: 5-10cm for prototyping
+- **Domain**: 100-200m sections
+
 ### For Surf Reef Design (Production)
-- **Minimum**: 4x A100 or 2x B200
-- **Recommended**: 8x B200
+- **Minimum**: 4x A100 or 2x H100
+- **Recommended**: 8x H100 or 4x MI300X
 - **Ideal**: 16x B200
 - **Resolution**: 2-5cm for design, 1cm for validation
 
 ### For Research
-- **Minimum**: 1x B200 or MI300X
-- **Recommended**: 4x B200
+- **Minimum**: 1x H100 or MI300X
+- **Recommended**: 4x B200 or 4x MI300X
 - **Resolution**: 5mm-1cm for detailed physics
 
 ### For Real-time Preview
-- **Configuration**: 1x H100 or B200
+- **Budget**: 1x RTX 5090
+- **Professional**: 1x H100 or B200
 - **Resolution**: 5-10cm
-- **Domain**: 100×100×20m sections
+- **Domain**: 100×100×8m sections
 
 ## Future Projections
 
@@ -271,21 +406,21 @@ The Cerebras WSE-3 represents a fundamentally different approach to compute acce
 ### Physical Domain Estimates
 
 **Pure On-chip Configuration (50 bytes/node):**
-| Resolution | Domain Size | Notes |
-|------------|-------------|-------|
-| 10cm | 210m × 210m × 20m | Full surf break |
-| 5cm | 130m × 130m × 13m | Detailed break |
-| 2cm | 70m × 70m × 8m | High-res section |
-| 1cm | 45m × 45m × 5m | Research detail |
+| Resolution | Domain Size | Notes | 10s Sim Time | 1min Sim Time |
+|------------|-------------|-------|--------------|---------------|
+| 10cm | 331m × 331m × 8m | Full surf break | 1.8 sec | 11 sec |
+| 5cm | 235m × 235m × 8m | Detailed break | 8.8 sec | 53 sec |
+| 2cm | 148m × 148m × 8m | High-res section | 44 sec | 4.4 min |
+| 1cm | 105m × 105m × 8m | Research detail | 1.8 min | 10.6 min |
 
 **With MemoryX Streaming (1.2PB):**
-| Resolution | Domain Size | Notes |
-|------------|-------------|-------|
-| 10cm | 5km × 5km × 500m | Regional ocean |
-| 5cm | 3km × 3km × 300m | Coastal system |
-| 2cm | 1.5km × 1.5km × 180m | Large reef complex |
-| 1cm | 1km × 1km × 100m | Detailed coast |
-| 5mm | 600m × 600m × 70m | Ultra-high res |
+| Resolution | Domain Size | Notes | 10s Sim Time | 1min Sim Time |
+|------------|-------------|-------|--------------|---------------|
+| 10cm | 12.2km × 12.2km × 8m | Regional ocean | 40 sec | 4 min |
+| 5cm | 8.7km × 8.7km × 8m | Coastal system | 2.4 min | 14 min |
+| 2cm | 5.5km × 5.5km × 8m | Large reef complex | 10 min | 1 hour |
+| 1cm | 3.9km × 3.9km × 8m | Detailed coast | 40 min | 4 hours |
+| 5mm | 2.7km × 2.7km × 8m | Ultra-high res | 2.5 hours | 15 hours |
 
 ### Performance Projections
 
@@ -297,9 +432,9 @@ The Cerebras WSE-3 represents a fundamentally different approach to compute acce
 **Time to Solution (1 second physical):**
 | Resolution | Domain | Nodes | Time |
 |------------|--------|-------|------|
-| 5cm | 130×130×13m | 440M | 3 seconds |
-| 2cm | 70×70×8m | 490M | 20 seconds |
-| 1cm | 45×45×5m | 450M | 90 seconds |
+| 5cm | 235×235×8m | 880M | 8.8 seconds |
+| 2cm | 148×148×8m | 875M | 44 seconds |
+| 1cm | 105×105×8m | 880M | 88 seconds |
 
 ### Programming Considerations
 
@@ -368,11 +503,13 @@ The Cerebras WSE-3 represents a fundamentally different approach to compute acce
 
 ## Conclusions
 
-1. **Current Generation** (A100/H100): Suitable for 2-5cm production work
-2. **Blackwell** (B200): Enables 1cm production, 1-5mm research
-3. **Cerebras** (WSE-3): Revolutionary for fixed-domain, bandwidth-limited simulations
-4. **Multi-GPU**: Essential for reef-scale simulations with flexibility
-5. **AMD Alternative**: MI300X offers compelling price/performance
+1. **Consumer GPUs** (4090/5090): Excellent entry point for prototyping and small-scale work
+2. **Current Generation** (A100/H100): Suitable for 2-5cm production work
+3. **Blackwell** (B200/5090): Enables 1cm production, 1-5mm research
+4. **Cerebras** (WSE-3): Revolutionary for fixed-domain, bandwidth-limited simulations
+5. **Multi-GPU**: Essential for reef-scale simulations with flexibility
+6. **AMD Alternative**: MI300X offers compelling price/performance
+7. **Cost-Performance**: RTX 5090 offers best value for small teams, H100 for production
 
 The combination of modern GPUs and optimized software will enable unprecedented simulation fidelity for artificial reef design and surf dynamics modeling. Cerebras represents a paradigm shift for specific use cases where its architecture aligns with problem requirements.
 
